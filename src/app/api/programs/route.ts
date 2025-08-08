@@ -17,7 +17,23 @@ export async function GET() {
       },
     })
 
-    return NextResponse.json(programs)
+    // Transform the data to match the frontend expectations
+    const transformedPrograms = programs.map(program => ({
+      ...program,
+      name: program.title, // Map title to name for frontend compatibility
+      type: program.programType,
+      price: {
+        registration: Number(program.registrationFee),
+        book: Number(program.bookFee),
+        monthly: Number(program.monthlyFee),
+        spp: {
+          subsidy: program.sppSubsidies as number[] || [],
+          private: Number(program.sppPrivate)
+        }
+      }
+    }))
+
+    return NextResponse.json(transformedPrograms)
   } catch (error) {
     console.error('Error fetching programs:', error)
     return NextResponse.json(
@@ -32,7 +48,7 @@ export async function POST(request: NextRequest) {
     const data = await request.json()
     
     // Validate required fields
-    if (!data.title || !data.description || !data.price || !data.duration || !data.capacity) {
+    if (!data.title || !data.description || !data.duration || !data.capacity) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -44,12 +60,19 @@ export async function POST(request: NextRequest) {
         title: data.title,
         description: data.description,
         imageUrl: data.imageUrl,
-        price: parseFloat(data.price),
+        registrationFee: data.price?.registration ? parseFloat(data.price.registration) : 0,
+        bookFee: data.price?.book ? parseFloat(data.price.book) : 0,
+        monthlyFee: data.price?.monthly ? parseFloat(data.price.monthly) : 0,
+        sppSubsidies: data.price?.spp?.subsidy || [],
+        sppPrivate: data.price?.spp?.private ? parseFloat(data.price.spp.private) : 0,
         duration: data.duration,
         capacity: parseInt(data.capacity),
         minAge: data.minAge ? parseInt(data.minAge) : null,
         maxAge: data.maxAge ? parseInt(data.maxAge) : null,
         schedule: data.schedule,
+        programType: data.type || 'course',
+        ageGroup: data.ageGroup,
+        curriculum: data.curriculum || [],
         category: data.category || 'TPA',
         instructorId: data.instructorId || null,
         isActive: data.isActive ?? true,
@@ -64,7 +87,23 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    return NextResponse.json(program, { status: 201 })
+    // Transform for frontend
+    const transformedProgram = {
+      ...program,
+      name: program.title,
+      type: program.programType,
+      price: {
+        registration: Number(program.registrationFee),
+        book: Number(program.bookFee),
+        monthly: Number(program.monthlyFee),
+        spp: {
+          subsidy: program.sppSubsidies as number[] || [],
+          private: Number(program.sppPrivate)
+        }
+      }
+    }
+
+    return NextResponse.json(transformedProgram, { status: 201 })
   } catch (error) {
     console.error('Error creating program:', error)
     return NextResponse.json(

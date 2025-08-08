@@ -87,12 +87,22 @@ model Program {
   title         String
   description   String   @db.Text
   imageUrl      String?
-  price         Decimal  @db.Decimal(10, 2)
+  
+  // Price structure matching frontend expectations
+  registrationFee Decimal @db.Decimal(10, 2) @default(0)
+  bookFee        Decimal @db.Decimal(10, 2) @default(0)
+  monthlyFee     Decimal @db.Decimal(10, 2) @default(0)
+  sppSubsidies   Json?   // Array of subsidy amounts
+  sppPrivate     Decimal @db.Decimal(10, 2) @default(0)
+  
   duration      String
   capacity      Int
   minAge        Int?
   maxAge        Int?
   schedule      String?
+  curriculum    Json?   // Array of curriculum items
+  ageGroup      String?
+  programType   String  @default("course") // preschool, tpa, course
   isActive      Boolean  @default(true)
   category      ProgramCategory
   instructorId  String?
