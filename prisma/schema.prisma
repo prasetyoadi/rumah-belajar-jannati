@@ -1,0 +1,292 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// User model for authentication
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      UserRole @default(VISITOR)
+  password  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  student   Student?
+  instructor Instructor?
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  INSTRUCTOR
+  STUDENT
+  VISITOR
+}
+
+// Student model
+model Student {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  name      String
+  birthDate DateTime?
+  address   String?
+  phone     String?
+  parentName String?
+  parentPhone String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  enrollments Enrollment[]
+  payments    Payment[]
+  progresses  StudentProgress[]
+
+  @@map("students")
+}
+
+// Instructor model  
+model Instructor {
+  id          String   @id @default(cuid())
+  userId      String?  @unique
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  name        String
+  email       String?  @unique
+  phone       String?
+  specialization String?
+  bio         String?  @db.Text
+  imageUrl    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  programs    Program[]
+  schedules   Schedule[]
+
+  @@map("instructors")
+}
+
+// Program model
+model Program {
+  id            String   @id @default(cuid())
+  title         String
+  description   String   @db.Text
+  imageUrl      String?
+  price         Decimal  @db.Decimal(10, 2)
+  duration      String
+  capacity      Int
+  minAge        Int?
+  maxAge        Int?
+  schedule      String?
+  isActive      Boolean  @default(true)
+  category      ProgramCategory
+  instructorId  String?
+  instructor    Instructor? @relation(fields: [instructorId], references: [id], onDelete: SetNull)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  enrollments   Enrollment[]
+  schedules     Schedule[]
+  progresses    StudentProgress[]
+
+  @@map("programs")
+}
+
+enum ProgramCategory {
+  PRESCHOOL
+  TPA
+  TAHSIN
+  ARABIC_COURSE
+  QURAN_MEMORIZATION
+}
+
+// Enrollment model
+model Enrollment {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  programId String
+  program   Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
+  
+  status    EnrollmentStatus @default(PENDING)
+  enrolledAt DateTime @default(now())
+  startDate DateTime?
+  endDate   DateTime?
+  notes     String?  @db.Text
+
+  // Relations
+  payments  Payment[]
+
+  @@unique([studentId, programId])
+  @@map("enrollments")
+}
+
+enum EnrollmentStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+// Payment model
+model Payment {
+  id           String    @id @default(cuid())
+  studentId    String
+  student      Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  enrollmentId String?
+  enrollment   Enrollment? @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
+  
+  amount       Decimal   @db.Decimal(10, 2)
+  method       PaymentMethod
+  status       PaymentStatus @default(PENDING)
+  reference    String?   // Reference number
+  notes        String?   @db.Text
+  paidAt       DateTime?
+  confirmedAt  DateTime?
+  confirmedBy  String?   // Admin who confirmed
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("payments")
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  E_WALLET
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  CANCELLED
+}
+
+// Schedule model for class schedules
+model Schedule {
+  id           String    @id @default(cuid())
+  programId    String
+  program      Program   @relation(fields: [programId], references: [id], onDelete: Cascade)
+  instructorId String?
+  instructor   Instructor? @relation(fields: [instructorId], references: [id], onDelete: SetNull)
+  
+  title        String
+  description  String?   @db.Text
+  dayOfWeek    Int       // 0 = Sunday, 1 = Monday, etc.
+  startTime    String    // Format: "HH:mm"
+  endTime      String    // Format: "HH:mm"
+  location     String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("schedules")
+}
+
+// Student progress tracking
+model StudentProgress {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  programId String
+  program   Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
+  
+  subject   String   // e.g., "Surah Al-Fatihah", "Arabic Alphabet"
+  progress  Int      // Percentage 0-100
+  notes     String?  @db.Text
+  evaluatedAt DateTime @default(now())
+  evaluatedBy String? // Instructor name
+  
+  @@map("student_progress")
+}
+
+// Existing models (updated)
+model FAQ {
+  id        String   @id @default(cuid())
+  question  String   @db.Text
+  answer    String   @db.Text
+  category  String
+  isActive  Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("faqs")
+}
+
+model Testimonial {
+  id        String   @id @default(cuid())
+  name      String
+  role      String?
+  content   String   @db.Text
+  rating    Int?     @default(5)
+  imageUrl  String?
+  isActive  Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("testimonials")
+}
+
+model Benefit {
+  id          String   @id @default(cuid())
+  title       String
+  description String   @db.Text
+  icon        String?
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("benefits")
+}
+
+model Gallery {
+  id          String   @id @default(cuid())
+  title       String
+  description String   @db.Text
+  imageUrl    String
+  category    String
+  tags        Json?    // Store array of tags as JSON
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("gallery")
+}
+
+model Hero {
+  id          String   @id @default(cuid())
+  title       String
+  subtitle    String?
+  description String   @db.Text
+  imageUrl    String?
+  buttonText  String?
+  buttonUrl   String?
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("heroes")
+}

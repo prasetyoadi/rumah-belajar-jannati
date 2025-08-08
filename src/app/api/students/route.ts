@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db'
 
 export async function GET() {
   try {
-    const instructors = await prisma.instructor.findMany({
+    const students = await prisma.student.findMany({
       include: {
         user: {
           select: {
@@ -12,16 +12,20 @@ export async function GET() {
             email: true,
           },
         },
-        programs: {
-          select: {
-            id: true,
-            title: true,
-            isActive: true,
+        enrollments: {
+          include: {
+            program: {
+              select: {
+                id: true,
+                title: true,
+                category: true,
+              },
+            },
           },
         },
         _count: {
           select: {
-            programs: true,
+            enrollments: true,
           },
         },
       },
@@ -30,11 +34,11 @@ export async function GET() {
       },
     })
 
-    return NextResponse.json(instructors)
+    return NextResponse.json(students)
   } catch (error) {
-    console.error('Error fetching instructors:', error)
+    console.error('Error fetching students:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch instructors' },
+      { error: 'Failed to fetch students' },
       { status: 500 }
     )
   }
@@ -51,21 +55,21 @@ export async function POST(request: NextRequest) {
         data: {
           email: data.email,
           name: data.name,
-          role: 'INSTRUCTOR',
+          role: 'STUDENT',
         },
       })
       userId = user.id
     }
 
-    const instructor = await prisma.instructor.create({
+    const student = await prisma.student.create({
       data: {
         userId,
         name: data.name,
-        email: data.email,
+        birthDate: data.birthDate ? new Date(data.birthDate) : null,
+        address: data.address,
         phone: data.phone,
-        specialization: data.specialization,
-        bio: data.bio,
-        imageUrl: data.imageUrl,
+        parentName: data.parentName,
+        parentPhone: data.parentPhone,
         isActive: data.isActive ?? true,
       },
       include: {
@@ -76,26 +80,30 @@ export async function POST(request: NextRequest) {
             email: true,
           },
         },
-        programs: {
-          select: {
-            id: true,
-            title: true,
-            isActive: true,
+        enrollments: {
+          include: {
+            program: {
+              select: {
+                id: true,
+                title: true,
+                category: true,
+              },
+            },
           },
         },
         _count: {
           select: {
-            programs: true,
+            enrollments: true,
           },
         },
       },
     })
     
-    return NextResponse.json(instructor, { status: 201 })
+    return NextResponse.json(student, { status: 201 })
   } catch (error) {
-    console.error('Error creating instructor:', error)
+    console.error('Error creating student:', error)
     return NextResponse.json(
-      { error: 'Failed to create instructor' },
+      { error: 'Failed to create student' },
       { status: 500 }
     )
   }
@@ -108,20 +116,20 @@ export async function PUT(request: NextRequest) {
     
     if (!id) {
       return NextResponse.json(
-        { error: 'Instructor ID is required' },
+        { error: 'Student ID is required' },
         { status: 400 }
       )
     }
 
-    const instructor = await prisma.instructor.update({
+    const student = await prisma.student.update({
       where: { id },
       data: {
         name: updateData.name,
-        email: updateData.email,
+        birthDate: updateData.birthDate ? new Date(updateData.birthDate) : undefined,
+        address: updateData.address,
         phone: updateData.phone,
-        specialization: updateData.specialization,
-        bio: updateData.bio,
-        imageUrl: updateData.imageUrl,
+        parentName: updateData.parentName,
+        parentPhone: updateData.parentPhone,
         isActive: updateData.isActive,
       },
       include: {
@@ -132,26 +140,30 @@ export async function PUT(request: NextRequest) {
             email: true,
           },
         },
-        programs: {
-          select: {
-            id: true,
-            title: true,
-            isActive: true,
+        enrollments: {
+          include: {
+            program: {
+              select: {
+                id: true,
+                title: true,
+                category: true,
+              },
+            },
           },
         },
         _count: {
           select: {
-            programs: true,
+            enrollments: true,
           },
         },
       },
     })
 
-    return NextResponse.json(instructor)
+    return NextResponse.json(student)
   } catch (error) {
-    console.error('Error updating instructor:', error)
+    console.error('Error updating student:', error)
     return NextResponse.json(
-      { error: 'Failed to update instructor' },
+      { error: 'Failed to update student' },
       { status: 500 }
     )
   }
@@ -164,20 +176,20 @@ export async function DELETE(request: NextRequest) {
     
     if (!id) {
       return NextResponse.json(
-        { error: 'Instructor ID is required' },
+        { error: 'Student ID is required' },
         { status: 400 }
       )
     }
 
-    await prisma.instructor.delete({
+    await prisma.student.delete({
       where: { id },
     })
     
-    return NextResponse.json({ message: 'Instructor deleted successfully' })
+    return NextResponse.json({ message: 'Student deleted successfully' })
   } catch (error) {
-    console.error('Error deleting instructor:', error)
+    console.error('Error deleting student:', error)
     return NextResponse.json(
-      { error: 'Failed to delete instructor' },
+      { error: 'Failed to delete student' },
       { status: 500 }
     )
   }

@@ -1,125 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Gallery } from '@/types'
-
-// Mock data for gallery based on the uploaded images
-// Note: You need to save the actual images to the public/gallery directory
-let gallery: Gallery[] = [
-  {
-    id: '1',
-    title: 'Islamic Art & Decorations',
-    description: 'Beautiful Islamic calligraphy and motivational posters displaying verses and Islamic phrases including "SubhanAllah", "Alhamdulillah", and "Allahu Akbar"',
-    imageUrl: '/gallery/islamic-art-wall.jpg',
-    category: 'facility',
-    isActive: true,
-    order: 1,
-    tags: ['islamic art', 'calligraphy', 'wall decoration', 'motivation'],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    title: 'Playground & Physical Development Area',
-    description: 'Safe and engaging wooden playground equipment with climbing frames, swings, and slides for children\'s physical development',
-    imageUrl: '/gallery/playground-equipment.jpg',
-    category: 'playground',
-    isActive: true,
-    order: 2,
-    tags: ['playground', 'physical development', 'wooden equipment', 'climbing', 'safety'],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '3',
-    title: 'Learning Environment Setup',
-    description: 'Well-organized classroom with Arabic alphabet wall charts, educational materials, and proper storage systems',
-    imageUrl: '/gallery/learning-environment.jpg',
-    category: 'classroom',
-    isActive: true,
-    order: 3,
-    tags: ['classroom', 'arabic alphabet', 'educational materials', 'organization'],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '4',
-    title: 'Main Classroom',
-    description: 'Spacious and well-lit classroom with colorful child-friendly furniture, educational wall displays, and organized learning stations',
-    imageUrl: '/gallery/main-classroom.jpg',
-    category: 'classroom',
-    isActive: true,
-    order: 4,
-    tags: ['classroom', 'colorful furniture', 'educational displays', 'learning stations'],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '5',
-    title: 'Interactive Learning Space',
-    description: 'Secondary classroom with child-sized tables and chairs in vibrant colors, educational posters, and natural lighting',
-    imageUrl: '/gallery/interactive-classroom.jpg',
-    category: 'classroom',
-    isActive: true,
-    order: 5,
-    tags: ['interactive learning', 'child-sized furniture', 'natural lighting', 'educational posters'],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '6',
-    title: 'Jannati Playground Equipment',
-    description: 'Premium wooden playground set with multiple activity stations including rope climbing, balance beams, and safe play areas',
-    imageUrl: '/gallery/jannati-playground.jpg',
-    category: 'playground',
-    isActive: true,
-    order: 6,
-    tags: ['premium equipment', 'rope climbing', 'balance beams', 'safe play', 'wooden'],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '7',
-    title: 'Multi-Level Classroom',
-    description: 'Two-story learning environment with stairs access and additional educational spaces for diverse learning activities',
-    imageUrl: '/gallery/multi-level-classroom.jpg',
-    category: 'classroom',
-    isActive: true,
-    order: 7,
-    tags: ['multi-level', 'stairs access', 'diverse learning', 'educational spaces'],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '8',
-    title: 'Upper Level Learning Space',
-    description: 'Additional classroom space on upper level with proper ventilation, educational materials, and comfortable learning environment',
-    imageUrl: '/gallery/upper-level-classroom.jpg',
-    category: 'classroom',
-    isActive: true,
-    order: 8,
-    tags: ['upper level', 'ventilation', 'comfortable learning', 'educational materials'],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '9',
-    title: 'Complete Learning Facility',
-    description: 'Overview of the complete learning facility showcasing the integrated approach to Islamic education with modern amenities',
-    imageUrl: '/gallery/complete-facility.jpg',
-    category: 'facility',
-    isActive: true,
-    order: 9,
-    tags: ['complete facility', 'integrated approach', 'islamic education', 'modern amenities'],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-]
+import { prisma } from '@/lib/db'
 
 export async function GET() {
   try {
-    return NextResponse.json(gallery.sort((a, b) => a.order - b.order))
+    const gallery = await prisma.gallery.findMany({
+      where: {
+        isActive: true,
+      },
+      orderBy: [
+        { order: 'asc' },
+        { createdAt: 'desc' },
+      ],
+    })
+
+    return NextResponse.json(gallery)
   } catch (error) {
+    console.error('Error fetching gallery:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch gallery items' },
+      { error: 'Failed to fetch gallery' },
       { status: 500 }
     )
   }
@@ -128,18 +26,22 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json()
-    const newGalleryItem: Gallery = {
-      id: Date.now().toString(),
-      ...data,
-      order: gallery.length + 1,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }
+
+    const gallery = await prisma.gallery.create({
+      data: {
+        title: data.title,
+        description: data.description,
+        imageUrl: data.imageUrl,
+        category: data.category,
+        isActive: data.isActive ?? true,
+        order: data.order || 0,
+        tags: data.tags || [],
+      },
+    })
     
-    gallery.push(newGalleryItem)
-    
-    return NextResponse.json(newGalleryItem, { status: 201 })
+    return NextResponse.json(gallery, { status: 201 })
   } catch (error) {
+    console.error('Error creating gallery item:', error)
     return NextResponse.json(
       { error: 'Failed to create gallery item' },
       { status: 500 }
@@ -152,22 +54,29 @@ export async function PUT(request: NextRequest) {
     const data = await request.json()
     const { id, ...updateData } = data
     
-    const galleryIndex = gallery.findIndex(item => item.id === id)
-    if (galleryIndex === -1) {
+    if (!id) {
       return NextResponse.json(
-        { error: 'Gallery item not found' },
-        { status: 404 }
+        { error: 'Gallery ID is required' },
+        { status: 400 }
       )
     }
-    
-    gallery[galleryIndex] = {
-      ...gallery[galleryIndex],
-      ...updateData,
-      updatedAt: new Date().toISOString(),
-    }
-    
-    return NextResponse.json(gallery[galleryIndex])
+
+    const gallery = await prisma.gallery.update({
+      where: { id },
+      data: {
+        title: updateData.title,
+        description: updateData.description,
+        imageUrl: updateData.imageUrl,
+        category: updateData.category,
+        isActive: updateData.isActive,
+        order: updateData.order,
+        tags: updateData.tags,
+      },
+    })
+
+    return NextResponse.json(gallery)
   } catch (error) {
+    console.error('Error updating gallery item:', error)
     return NextResponse.json(
       { error: 'Failed to update gallery item' },
       { status: 500 }
@@ -182,23 +91,18 @@ export async function DELETE(request: NextRequest) {
     
     if (!id) {
       return NextResponse.json(
-        { error: 'Gallery item ID is required' },
+        { error: 'Gallery ID is required' },
         { status: 400 }
       )
     }
-    
-    const galleryIndex = gallery.findIndex(item => item.id === id)
-    if (galleryIndex === -1) {
-      return NextResponse.json(
-        { error: 'Gallery item not found' },
-        { status: 404 }
-      )
-    }
-    
-    gallery.splice(galleryIndex, 1)
+
+    await prisma.gallery.delete({
+      where: { id },
+    })
     
     return NextResponse.json({ message: 'Gallery item deleted successfully' })
   } catch (error) {
+    console.error('Error deleting gallery item:', error)
     return NextResponse.json(
       { error: 'Failed to delete gallery item' },
       { status: 500 }

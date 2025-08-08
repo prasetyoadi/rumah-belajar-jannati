@@ -1,47 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Testimonial } from '@/types'
-
-// Mock data for testimonials
-let testimonials: Testimonial[] = [
-  {
-    id: '1',
-    name: 'Ibu Sari',
-    role: 'Orang Tua Murid',
-    content: 'Alhamdulillah, anak saya sangat senang belajar di Rumah Belajar Jannati. Guru-gurunya sabar dan metode pengajarannya sangat baik.',
-    rating: 5,
-    image: '/testimonials/ibu-sari.jpg',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    name: 'Bapak Ahmad',
-    role: 'Wali Murid',
-    content: 'Program tahfidz di sini sangat bagus. Anak saya sudah hafal beberapa surah dalam waktu singkat. Terima kasih ustaz dan ustazah!',
-    rating: 5,
-    image: '/testimonials/bapak-ahmad.jpg',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '3',
-    name: 'Ibu Fatimah',
-    role: 'Orang Tua',
-    content: 'Lingkungan belajar yang islami dan kondusif. Anak-anak diajarkan tidak hanya ilmu agama tapi juga akhlak yang baik.',
-    rating: 5,
-    image: '/testimonials/ibu-fatimah.jpg',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-]
+import { prisma } from '@/lib/db'
 
 export async function GET() {
   try {
-    return NextResponse.json(testimonials.filter(t => t.isActive))
+    const testimonials = await prisma.testimonial.findMany({
+      where: {
+        isActive: true,
+      },
+      orderBy: [
+        { order: 'asc' },
+        { createdAt: 'desc' },
+      ],
+    })
+
+    return NextResponse.json(testimonials)
   } catch (error) {
+    console.error('Error fetching testimonials:', error)
     return NextResponse.json(
       { error: 'Failed to fetch testimonials' },
       { status: 500 }
@@ -52,17 +26,22 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json()
-    const newTestimonial: Testimonial = {
-      id: Date.now().toString(),
-      ...data,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }
+
+    const testimonial = await prisma.testimonial.create({
+      data: {
+        name: data.name,
+        role: data.role,
+        content: data.content || data.message, // Support both content and message fields
+        imageUrl: data.imageUrl || data.image, // Support both imageUrl and image fields
+        rating: data.rating || 5,
+        isActive: data.isActive ?? true,
+        order: data.order || 0,
+      },
+    })
     
-    testimonials.push(newTestimonial)
-    
-    return NextResponse.json(newTestimonial, { status: 201 })
+    return NextResponse.json(testimonial, { status: 201 })
   } catch (error) {
+    console.error('Error creating testimonial:', error)
     return NextResponse.json(
       { error: 'Failed to create testimonial' },
       { status: 500 }
@@ -75,22 +54,29 @@ export async function PUT(request: NextRequest) {
     const data = await request.json()
     const { id, ...updateData } = data
     
-    const testimonialIndex = testimonials.findIndex(testimonial => testimonial.id === id)
-    if (testimonialIndex === -1) {
+    if (!id) {
       return NextResponse.json(
-        { error: 'Testimonial not found' },
-        { status: 404 }
+        { error: 'Testimonial ID is required' },
+        { status: 400 }
       )
     }
-    
-    testimonials[testimonialIndex] = {
-      ...testimonials[testimonialIndex],
-      ...updateData,
-      updatedAt: new Date().toISOString(),
-    }
-    
-    return NextResponse.json(testimonials[testimonialIndex])
+
+    const testimonial = await prisma.testimonial.update({
+      where: { id },
+      data: {
+        name: updateData.name,
+        role: updateData.role,
+        content: updateData.content || updateData.message,
+        imageUrl: updateData.imageUrl || updateData.image,
+        rating: updateData.rating,
+        isActive: updateData.isActive,
+        order: updateData.order,
+      },
+    })
+
+    return NextResponse.json(testimonial)
   } catch (error) {
+    console.error('Error updating testimonial:', error)
     return NextResponse.json(
       { error: 'Failed to update testimonial' },
       { status: 500 }
@@ -109,19 +95,14 @@ export async function DELETE(request: NextRequest) {
         { status: 400 }
       )
     }
-    
-    const testimonialIndex = testimonials.findIndex(testimonial => testimonial.id === id)
-    if (testimonialIndex === -1) {
-      return NextResponse.json(
-        { error: 'Testimonial not found' },
-        { status: 404 }
-      )
-    }
-    
-    testimonials.splice(testimonialIndex, 1)
+
+    await prisma.testimonial.delete({
+      where: { id },
+    })
     
     return NextResponse.json({ message: 'Testimonial deleted successfully' })
   } catch (error) {
+    console.error('Error deleting testimonial:', error)
     return NextResponse.json(
       { error: 'Failed to delete testimonial' },
       { status: 500 }
