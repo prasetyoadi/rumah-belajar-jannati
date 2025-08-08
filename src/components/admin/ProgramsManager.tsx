@@ -174,7 +174,7 @@ export default function ProgramsManager({ isActive }: ProgramsManagerProps) {
                     <Field
                       type="text"
                       name="name"
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-gray-900"
                     />
                     <ErrorMessage name="name" component="div" className="text-red-600 text-sm mt-1" />
                   </div>
@@ -186,7 +186,7 @@ export default function ProgramsManager({ isActive }: ProgramsManagerProps) {
                     <Field
                       as="select"
                       name="type"
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-gray-900"
                     >
                       <option value="preschool">Preschool</option>
                       <option value="tpa">TPA</option>
@@ -202,7 +202,7 @@ export default function ProgramsManager({ isActive }: ProgramsManagerProps) {
                     <Field
                       type="text"
                       name="ageGroup"
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-gray-900"
                     />
                     <ErrorMessage name="ageGroup" component="div" className="text-red-600 text-sm mt-1" />
                   </div>
@@ -214,7 +214,7 @@ export default function ProgramsManager({ isActive }: ProgramsManagerProps) {
                     <Field
                       type="text"
                       name="duration"
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-gray-900"
                     />
                     <ErrorMessage name="duration" component="div" className="text-red-600 text-sm mt-1" />
                   </div>
@@ -228,7 +228,7 @@ export default function ProgramsManager({ isActive }: ProgramsManagerProps) {
                     as="textarea"
                     name="description"
                     rows={3}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-gray-900"
                   />
                   <ErrorMessage name="description" component="div" className="text-red-600 text-sm mt-1" />
                 </div>
@@ -241,7 +241,7 @@ export default function ProgramsManager({ isActive }: ProgramsManagerProps) {
                     <Field
                       type="number"
                       name="price.registration"
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-gray-900"
                     />
                     <ErrorMessage name="price.registration" component="div" className="text-red-600 text-sm mt-1" />
                   </div>
@@ -253,7 +253,7 @@ export default function ProgramsManager({ isActive }: ProgramsManagerProps) {
                     <Field
                       type="number"
                       name="price.book"
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-gray-900"
                     />
                     <ErrorMessage name="price.book" component="div" className="text-red-600 text-sm mt-1" />
                   </div>
@@ -265,7 +265,7 @@ export default function ProgramsManager({ isActive }: ProgramsManagerProps) {
                     <Field
                       type="number"
                       name="price.monthly"
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-gray-900"
                     />
                     <ErrorMessage name="price.monthly" component="div" className="text-red-600 text-sm mt-1" />
                   </div>
@@ -277,7 +277,7 @@ export default function ProgramsManager({ isActive }: ProgramsManagerProps) {
                     <Field
                       type="number"
                       name="price.spp.private"
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-gray-900"
                     />
                     <ErrorMessage name="price.spp.private" component="div" className="text-red-600 text-sm mt-1" />
                   </div>
@@ -295,7 +295,7 @@ export default function ProgramsManager({ isActive }: ProgramsManagerProps) {
                             <Field
                               name={`curriculum.${index}`}
                               placeholder={`Kurikulum ${index + 1}`}
-                              className="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                              className="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-gray-900"
                             />
                             {values.curriculum.length > 1 && (
                               <button
@@ -333,7 +333,7 @@ export default function ProgramsManager({ isActive }: ProgramsManagerProps) {
                             <Field
                               name={`schedule.${index}`}
                               placeholder={`Jadwal ${index + 1}`}
-                              className="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                              className="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-gray-900"
                             />
                             {values.schedule.length > 1 && (
                               <button

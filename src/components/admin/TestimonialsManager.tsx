@@ -197,7 +197,7 @@ export default function TestimonialsManager({ isActive }: TestimonialsManagerPro
                     <Field
                       type="text"
                       name="name"
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-gray-900"
                     />
                     <ErrorMessage name="name" component="div" className="text-red-500 text-sm mt-1" />
                   </div>
@@ -209,7 +209,7 @@ export default function TestimonialsManager({ isActive }: TestimonialsManagerPro
                     <Field
                       type="text"
                       name="role"
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-gray-900"
                       placeholder="contoh: Orang Tua Murid"
                     />
                     <ErrorMessage name="role" component="div" className="text-red-500 text-sm mt-1" />
@@ -222,7 +222,7 @@ export default function TestimonialsManager({ isActive }: TestimonialsManagerPro
                     <Field
                       as="select"
                       name="rating"
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-gray-900"
                     >
                       <option value={5}>5 Bintang</option>
                       <option value={4}>4 Bintang</option>
@@ -240,7 +240,7 @@ export default function TestimonialsManager({ isActive }: TestimonialsManagerPro
                     <Field
                       type="url"
                       name="image"
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-gray-900"
                       placeholder="https://example.com/photo.jpg"
                     />
                     <ErrorMessage name="image" component="div" className="text-red-500 text-sm mt-1" />
@@ -255,7 +255,7 @@ export default function TestimonialsManager({ isActive }: TestimonialsManagerPro
                     as="textarea"
                     name="content"
                     rows={4}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-gray-900"
                     placeholder="Tulis testimonial di sini..."
                   />
                   <ErrorMessage name="content" component="div" className="text-red-500 text-sm mt-1" />

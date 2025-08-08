@@ -311,7 +311,7 @@ export default function AdminDashboard() {
           {activeTab === 'benefits' && <BenefitsManager isActive={true} />}
           {activeTab === 'faqs' && <FAQsManager isActive={true} />}
           {activeTab === 'testimonials' && <TestimonialsManager isActive={true} />}
-          {activeTab === 'gallery' && <GalleryManager />}
+          {activeTab === 'gallery' && <GalleryManager isActive={true} />}
 
           {activeTab === 'monitoring' && (
             <div className="space-y-6">

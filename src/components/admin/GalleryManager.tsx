@@ -247,7 +247,7 @@ export default function GalleryManager({ isActive }: GalleryManagerProps) {
                   <Field
                     type="text"
                     name="title"
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-gray-900"
                   />
                   <ErrorMessage name="title" component="div" className="text-red-500 text-sm mt-1" />
                 </div>
@@ -260,7 +260,7 @@ export default function GalleryManager({ isActive }: GalleryManagerProps) {
                     as="textarea"
                     name="description"
                     rows={3}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-gray-900"
                   />
                   <ErrorMessage name="description" component="div" className="text-red-500 text-sm mt-1" />
                 </div>
@@ -272,7 +272,7 @@ export default function GalleryManager({ isActive }: GalleryManagerProps) {
                   <Field
                     type="url"
                     name="imageUrl"
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-gray-900"
                   />
                   <ErrorMessage name="imageUrl" component="div" className="text-red-500 text-sm mt-1" />
                   
@@ -297,7 +297,7 @@ export default function GalleryManager({ isActive }: GalleryManagerProps) {
                   <Field
                     as="select"
                     name="category"
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-gray-900"
                   >
                     <option value="">Pilih Kategori</option>
                     {categoryOptions.map((option) => (

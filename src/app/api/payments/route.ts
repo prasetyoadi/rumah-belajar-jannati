@@ -22,7 +22,8 @@ export async function GET() {
               select: {
                 id: true,
                 title: true,
-                price: true,
+                registrationFee: true,
+                monthlyFee: true,
               },
             },
           },
@@ -76,7 +77,8 @@ export async function POST(request: NextRequest) {
               select: {
                 id: true,
                 title: true,
-                price: true,
+                registrationFee: true,
+                monthlyFee: true,
               },
             },
           },
@@ -142,7 +144,8 @@ export async function PUT(request: NextRequest) {
               select: {
                 id: true,
                 title: true,
-                price: true,
+                registrationFee: true,
+                monthlyFee: true,
               },
             },
           },
