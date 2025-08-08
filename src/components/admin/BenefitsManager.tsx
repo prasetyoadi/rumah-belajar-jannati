@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Formik, Form, Field, ErrorMessage } from 'formik'
+import * as Yup from 'yup'
 import { useAdminStore } from '@/store/useAdminStore'
 import { Benefit } from '@/types'
 import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
@@ -22,6 +24,26 @@ const iconOptions = [
   'globe-alt'
 ]
 
+// Validation schema
+const benefitValidationSchema = Yup.object({
+  title: Yup.string()
+    .required('Judul manfaat harus diisi')
+    .min(3, 'Judul minimal 3 karakter')
+    .max(100, 'Judul maksimal 100 karakter'),
+  description: Yup.string()
+    .required('Deskripsi harus diisi')
+    .min(10, 'Deskripsi minimal 10 karakter')
+    .max(500, 'Deskripsi maksimal 500 karakter'),
+  icon: Yup.string()
+    .required('Icon harus dipilih')
+    .oneOf(iconOptions, 'Icon tidak valid'),
+  order: Yup.number()
+    .required('Urutan harus diisi')
+    .min(1, 'Urutan minimal 1')
+    .integer('Urutan harus berupa angka bulat'),
+  isActive: Yup.boolean()
+})
+
 export default function BenefitsManager({ isActive }: BenefitsManagerProps) {
   const {
     benefits,
@@ -34,13 +56,27 @@ export default function BenefitsManager({ isActive }: BenefitsManagerProps) {
 
   const [showForm, setShowForm] = useState(false)
   const [editingBenefit, setEditingBenefit] = useState<Benefit | null>(null)
-  const [formData, setFormData] = useState<Partial<Benefit>>({
-    title: '',
-    description: '',
-    icon: 'book-open',
-    isActive: true,
-    order: 1,
-  })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Initial form values
+  const getInitialValues = (): Partial<Benefit> => {
+    if (editingBenefit) {
+      return {
+        title: editingBenefit.title || '',
+        description: editingBenefit.description || '',
+        icon: editingBenefit.icon || 'book-open',
+        isActive: editingBenefit.isActive !== undefined ? editingBenefit.isActive : true,
+        order: editingBenefit.order || 1,
+      }
+    }
+    return {
+      title: '',
+      description: '',
+      icon: 'book-open',
+      isActive: true,
+      order: benefits.length + 1,
+    }
+  }
 
   useEffect(() => {
     if (isActive && benefits.length === 0) {
@@ -48,8 +84,8 @@ export default function BenefitsManager({ isActive }: BenefitsManagerProps) {
     }
   }, [isActive, benefits.length, fetchBenefits])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (values: Partial<Benefit>) => {
+    setIsSubmitting(true)
     
     try {
       if (editingBenefit) {
@@ -57,36 +93,43 @@ export default function BenefitsManager({ isActive }: BenefitsManagerProps) {
         const response = await fetch('/api/benefits', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: editingBenefit.id, ...formData }),
+          credentials: 'include',
+          body: JSON.stringify({ id: editingBenefit.id, ...values }),
         })
         
         if (response.ok) {
           const updatedBenefit = await response.json()
           updateBenefit(editingBenefit.id, updatedBenefit)
+        } else {
+          throw new Error('Failed to update benefit')
         }
       } else {
         // Create new benefit
         const response = await fetch('/api/benefits', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
+          credentials: 'include',
+          body: JSON.stringify(values),
         })
         
         if (response.ok) {
           const newBenefit = await response.json()
           addBenefit(newBenefit)
+        } else {
+          throw new Error('Failed to create benefit')
         }
       }
       
       resetForm()
     } catch (error) {
       console.error('Error saving benefit:', error)
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   const handleEdit = (benefit: Benefit) => {
     setEditingBenefit(benefit)
-    setFormData(benefit)
     setShowForm(true)
   }
 
@@ -95,10 +138,13 @@ export default function BenefitsManager({ isActive }: BenefitsManagerProps) {
       try {
         const response = await fetch(`/api/benefits?id=${id}`, {
           method: 'DELETE',
+          credentials: 'include',
         })
         
         if (response.ok) {
           deleteBenefit(id)
+        } else {
+          throw new Error('Failed to delete benefit')
         }
       } catch (error) {
         console.error('Error deleting benefit:', error)
@@ -109,13 +155,6 @@ export default function BenefitsManager({ isActive }: BenefitsManagerProps) {
   const resetForm = () => {
     setShowForm(false)
     setEditingBenefit(null)
-    setFormData({
-      title: '',
-      description: '',
-      icon: 'book-open',
-      isActive: true,
-      order: benefits.length + 1,
-    })
   }
 
   if (!isActive) return null
@@ -139,95 +178,107 @@ export default function BenefitsManager({ isActive }: BenefitsManagerProps) {
             {editingBenefit ? 'Edit Manfaat' : 'Tambah Manfaat Baru'}
           </h3>
           
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Judul Manfaat
-                </label>
-                <input
-                  type="text"
-                  value={formData.title || ''}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  required
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Icon
-                </label>
-                <select
-                  value={formData.icon || 'book-open'}
-                  onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  required
-                >
-                  {iconOptions.map((icon) => (
-                    <option key={icon} value={icon}>
-                      {icon.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                    </option>
-                  ))}
-                </select>
-              </div>
+          <Formik
+            key={editingBenefit?.id || 'new'}
+            initialValues={getInitialValues()}
+            validationSchema={benefitValidationSchema}
+            onSubmit={handleSubmit}
+            enableReinitialize={true}
+          >
+            {({ isSubmitting: formikSubmitting }) => (
+              <Form className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Judul Manfaat
+                    </label>
+                    <Field
+                      type="text"
+                      name="title"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    />
+                    <ErrorMessage name="title" component="div" className="text-red-500 text-sm mt-1" />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Icon
+                    </label>
+                    <Field
+                      as="select"
+                      name="icon"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    >
+                      {iconOptions.map((icon) => (
+                        <option key={icon} value={icon}>
+                          {icon.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        </option>
+                      ))}
+                    </Field>
+                    <ErrorMessage name="icon" component="div" className="text-red-500 text-sm mt-1" />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Urutan
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={formData.order || 1}
-                  onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  required
-                />
-              </div>
-            </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Urutan
+                    </label>
+                    <Field
+                      type="number"
+                      name="order"
+                      min="1"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    />
+                    <ErrorMessage name="order" component="div" className="text-red-500 text-sm mt-1" />
+                  </div>
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Deskripsi
-              </label>
-              <textarea
-                value={formData.description || ''}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                rows={3}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                required
-              />
-            </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Deskripsi
+                  </label>
+                  <Field
+                    as="textarea"
+                    name="description"
+                    rows={3}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                  />
+                  <ErrorMessage name="description" component="div" className="text-red-500 text-sm mt-1" />
+                </div>
 
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                checked={formData.isActive || false}
-                onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                className="h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
-              />
-              <label className="ml-2 block text-sm text-gray-700">
-                Manfaat Aktif
-              </label>
-            </div>
+                <div className="flex items-center">
+                  <Field
+                    type="checkbox"
+                    name="isActive"
+                    className="h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
+                  />
+                  <label className="ml-2 block text-sm text-gray-700">
+                    Manfaat Aktif
+                  </label>
+                </div>
 
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700"
-              >
-                {editingBenefit ? 'Update' : 'Simpan'}
-              </button>
-              <button
-                type="button"
-                onClick={resetForm}
-                className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400"
-              >
-                Batal
-              </button>
-            </div>
-          </form>
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || formikSubmitting}
+                    className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmitting || formikSubmitting 
+                      ? 'Menyimpan...' 
+                      : editingBenefit ? 'Update' : 'Simpan'
+                    }
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    disabled={isSubmitting || formikSubmitting}
+                    className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Batal
+                  </button>
+                </div>
+              </Form>
+            )}
+          </Formik>
         </div>
       )}
 

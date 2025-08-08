@@ -31,7 +31,7 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<'overview' | 'programs' | 'instructors' | 'benefits' | 'faqs' | 'testimonials' | 'gallery' | 'monitoring'>('overview')
   
   const router = useRouter()
-  const { user, isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated, isLoading, checkAuth } = useAuthStore()
   const logoutMutation = useLogout()
   
   const { 
@@ -49,12 +49,27 @@ export default function AdminDashboard() {
     fetchGallery
   } = useAdminStore()
 
-  // Redirect to login if not authenticated
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.push('/admin/login' as any)
+    // Check authentication status on component mount
+    const verifyAuth = async () => {
+      await checkAuth()
     }
-  }, [isAuthenticated, router])
+    verifyAuth()
+  }, [checkAuth])
+
+  useEffect(() => {
+    // Redirect to login if not authenticated and not loading
+    if (!isLoading && !isAuthenticated) {
+      router.push('/admin/login')
+      return
+    }
+
+    // Check if user is admin
+    if (!isLoading && isAuthenticated && user?.role !== 'ADMIN') {
+      router.push('/admin/login')
+      return
+    }
+  }, [isAuthenticated, isLoading, user, router])
 
   const handleLogout = async () => {
     try {
@@ -85,14 +100,14 @@ export default function AdminDashboard() {
   }
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && user?.role === 'ADMIN') {
       loadInitialData()
       fetchPortalData()
       // Auto-refresh portal data every 5 minutes
       const interval = setInterval(fetchPortalData, 5 * 60 * 1000)
       return () => clearInterval(interval)
     }
-  }, [isAuthenticated])
+  }, [isAuthenticated, user])
 
   const fetchPortalData = async () => {
     try {
@@ -153,6 +168,23 @@ export default function AdminDashboard() {
         changeType: 'neutral',
       },
     ]
+  }
+
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-yellow-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Verifying authentication...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Redirect if not authenticated or not admin
+  if (!isAuthenticated || user?.role !== 'ADMIN') {
+    return null // Will redirect via useEffect
   }
 
   if (loading) {

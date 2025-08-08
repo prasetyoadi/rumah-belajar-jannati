@@ -1,12 +1,51 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Formik, Form, Field, ErrorMessage, FieldArray } from 'formik'
+import * as Yup from 'yup'
 import { useAdminStore } from '@/store/useAdminStore'
 import { Program } from '@/types'
 import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
 
 interface ProgramsManagerProps {
   isActive: boolean
+}
+
+const programSchema = Yup.object().shape({
+  name: Yup.string().required('Nama program wajib diisi'),
+  description: Yup.string().required('Deskripsi wajib diisi'),
+  type: Yup.string().oneOf(['preschool', 'tpa', 'course']).required('Tipe program wajib dipilih'),
+  ageGroup: Yup.string().required('Kelompok usia wajib diisi'),
+  duration: Yup.string().required('Durasi wajib diisi'),
+  price: Yup.object().shape({
+    registration: Yup.number().min(0, 'Harga tidak boleh negatif').required('Biaya pendaftaran wajib diisi'),
+    book: Yup.number().min(0, 'Harga tidak boleh negatif').required('Biaya buku wajib diisi'),
+    monthly: Yup.number().min(0, 'Harga tidak boleh negatif').required('Biaya bulanan wajib diisi'),
+    spp: Yup.object().shape({
+      private: Yup.number().min(0, 'Harga tidak boleh negatif'),
+    }),
+  }),
+  curriculum: Yup.array().of(Yup.string()).min(1, 'Minimal 1 kurikulum harus diisi'),
+})
+
+const initialValues = {
+  name: '',
+  description: '',
+  type: 'preschool' as 'preschool' | 'tpa' | 'course',
+  ageGroup: '',
+  duration: '',
+  schedule: [''],
+  price: {
+    registration: 0,
+    book: 0,
+    monthly: 0,
+    spp: {
+      subsidy: [0, 0, 0],
+      private: 0,
+    },
+  },
+  curriculum: [''],
+  isActive: true,
 }
 
 export default function ProgramsManager({ isActive }: ProgramsManagerProps) {
@@ -21,25 +60,6 @@ export default function ProgramsManager({ isActive }: ProgramsManagerProps) {
 
   const [showForm, setShowForm] = useState(false)
   const [editingProgram, setEditingProgram] = useState<Program | null>(null)
-  const [formData, setFormData] = useState<Partial<Program>>({
-    name: '',
-    description: '',
-    type: 'preschool',
-    ageGroup: '',
-    duration: '',
-    schedule: [],
-    price: {
-      registration: 0,
-      book: 0,
-      monthly: 0,
-      spp: {
-        subsidy: [0, 0, 0],
-        private: 0,
-      },
-    },
-    curriculum: [],
-    isActive: true,
-  })
 
   useEffect(() => {
     if (isActive && programs.length === 0) {
@@ -47,16 +67,14 @@ export default function ProgramsManager({ isActive }: ProgramsManagerProps) {
     }
   }, [isActive, programs.length, fetchPrograms])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
+  const handleSubmit = async (values: typeof initialValues) => {
     try {
       if (editingProgram) {
         // Update existing program
         const response = await fetch('/api/programs', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: editingProgram.id, ...formData }),
+          body: JSON.stringify({ id: editingProgram.id, ...values }),
         })
         
         if (response.ok) {
@@ -68,7 +86,7 @@ export default function ProgramsManager({ isActive }: ProgramsManagerProps) {
         const response = await fetch('/api/programs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(values),
         })
         
         if (response.ok) {
@@ -85,7 +103,6 @@ export default function ProgramsManager({ isActive }: ProgramsManagerProps) {
 
   const handleEdit = (program: Program) => {
     setEditingProgram(program)
-    setFormData(program)
     setShowForm(true)
   }
 
@@ -108,25 +125,6 @@ export default function ProgramsManager({ isActive }: ProgramsManagerProps) {
   const resetForm = () => {
     setShowForm(false)
     setEditingProgram(null)
-    setFormData({
-      name: '',
-      description: '',
-      type: 'preschool',
-      ageGroup: '',
-      duration: '',
-      schedule: [],
-      price: {
-        registration: 0,
-        book: 0,
-        monthly: 0,
-        spp: {
-          subsidy: [0, 0, 0],
-          private: 0,
-        },
-      },
-      curriculum: [],
-      isActive: true,
-    })
   }
 
   if (!isActive) return null
@@ -150,170 +148,246 @@ export default function ProgramsManager({ isActive }: ProgramsManagerProps) {
             {editingProgram ? 'Edit Program' : 'Tambah Program Baru'}
           </h3>
           
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nama Program
-                </label>
-                <input
-                  type="text"
-                  value={formData.name || ''}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  required
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tipe Program
-                </label>
-                <select
-                  value={formData.type || 'preschool'}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value as 'preschool' | 'tpa' | 'course' })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  required
-                >
-                  <option value="preschool">Preschool</option>
-                  <option value="tpa">TPA</option>
-                  <option value="course">Kursus</option>
-                </select>
-              </div>
+          <Formik
+            initialValues={editingProgram ? {
+              name: editingProgram.name,
+              description: editingProgram.description,
+              type: editingProgram.type,
+              ageGroup: editingProgram.ageGroup,
+              duration: editingProgram.duration,
+              schedule: editingProgram.schedule || [''],
+              price: editingProgram.price,
+              curriculum: editingProgram.curriculum || [''],
+              isActive: editingProgram.isActive,
+            } : initialValues}
+            validationSchema={programSchema}
+            onSubmit={handleSubmit}
+            enableReinitialize
+          >
+            {({ values, isSubmitting }) => (
+              <Form className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Nama Program
+                    </label>
+                    <Field
+                      type="text"
+                      name="name"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    />
+                    <ErrorMessage name="name" component="div" className="text-red-600 text-sm mt-1" />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Tipe Program
+                    </label>
+                    <Field
+                      as="select"
+                      name="type"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    >
+                      <option value="preschool">Preschool</option>
+                      <option value="tpa">TPA</option>
+                      <option value="course">Kursus</option>
+                    </Field>
+                    <ErrorMessage name="type" component="div" className="text-red-600 text-sm mt-1" />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Kelompok Usia
-                </label>
-                <input
-                  type="text"
-                  value={formData.ageGroup || ''}
-                  onChange={(e) => setFormData({ ...formData, ageGroup: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  required
-                />
-              </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Kelompok Usia
+                    </label>
+                    <Field
+                      type="text"
+                      name="ageGroup"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    />
+                    <ErrorMessage name="ageGroup" component="div" className="text-red-600 text-sm mt-1" />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Durasi
-                </label>
-                <input
-                  type="text"
-                  value={formData.duration || ''}
-                  onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  required
-                />
-              </div>
-            </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Durasi
+                    </label>
+                    <Field
+                      type="text"
+                      name="duration"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    />
+                    <ErrorMessage name="duration" component="div" className="text-red-600 text-sm mt-1" />
+                  </div>
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Deskripsi
-              </label>
-              <textarea
-                value={formData.description || ''}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                rows={3}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                required
-              />
-            </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Deskripsi
+                  </label>
+                  <Field
+                    as="textarea"
+                    name="description"
+                    rows={3}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                  />
+                  <ErrorMessage name="description" component="div" className="text-red-600 text-sm mt-1" />
+                </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Biaya Pendaftaran
-                </label>
-                <input
-                  type="number"
-                  value={formData.price?.registration || 0}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    price: { ...formData.price!, registration: parseInt(e.target.value) }
-                  })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                />
-              </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Biaya Pendaftaran
+                    </label>
+                    <Field
+                      type="number"
+                      name="price.registration"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    />
+                    <ErrorMessage name="price.registration" component="div" className="text-red-600 text-sm mt-1" />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Biaya Buku
-                </label>
-                <input
-                  type="number"
-                  value={formData.price?.book || 0}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    price: { ...formData.price!, book: parseInt(e.target.value) }
-                  })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                />
-              </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Biaya Buku
+                    </label>
+                    <Field
+                      type="number"
+                      name="price.book"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    />
+                    <ErrorMessage name="price.book" component="div" className="text-red-600 text-sm mt-1" />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  SPP Bulanan
-                </label>
-                <input
-                  type="number"
-                  value={formData.price?.monthly || 0}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    price: { ...formData.price!, monthly: parseInt(e.target.value) }
-                  })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                />
-              </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      SPP Bulanan
+                    </label>
+                    <Field
+                      type="number"
+                      name="price.monthly"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    />
+                    <ErrorMessage name="price.monthly" component="div" className="text-red-600 text-sm mt-1" />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  SPP Private
-                </label>
-                <input
-                  type="number"
-                  value={formData.price?.spp.private || 0}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    price: {
-                      ...formData.price!,
-                      spp: { ...formData.price!.spp, private: parseInt(e.target.value) }
-                    }
-                  })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                />
-              </div>
-            </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      SPP Private
+                    </label>
+                    <Field
+                      type="number"
+                      name="price.spp.private"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    />
+                    <ErrorMessage name="price.spp.private" component="div" className="text-red-600 text-sm mt-1" />
+                  </div>
+                </div>
 
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                checked={formData.isActive || false}
-                onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                className="h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
-              />
-              <label className="ml-2 block text-sm text-gray-700">
-                Program Aktif
-              </label>
-            </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Kurikulum
+                  </label>
+                  <FieldArray name="curriculum">
+                    {({ push, remove }) => (
+                      <div className="space-y-2">
+                        {values.curriculum.map((_, index) => (
+                          <div key={index} className="flex gap-2">
+                            <Field
+                              name={`curriculum.${index}`}
+                              placeholder={`Kurikulum ${index + 1}`}
+                              className="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                            />
+                            {values.curriculum.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => remove(index)}
+                                className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                              >
+                                Hapus
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => push('')}
+                          className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                        >
+                          Tambah Kurikulum
+                        </button>
+                      </div>
+                    )}
+                  </FieldArray>
+                  <ErrorMessage name="curriculum" component="div" className="text-red-600 text-sm mt-1" />
+                </div>
 
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700"
-              >
-                {editingProgram ? 'Update' : 'Simpan'}
-              </button>
-              <button
-                type="button"
-                onClick={resetForm}
-                className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400"
-              >
-                Batal
-              </button>
-            </div>
-          </form>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Jadwal
+                  </label>
+                  <FieldArray name="schedule">
+                    {({ push, remove }) => (
+                      <div className="space-y-2">
+                        {values.schedule.map((_, index) => (
+                          <div key={index} className="flex gap-2">
+                            <Field
+                              name={`schedule.${index}`}
+                              placeholder={`Jadwal ${index + 1}`}
+                              className="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                            />
+                            {values.schedule.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => remove(index)}
+                                className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                              >
+                                Hapus
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => push('')}
+                          className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                        >
+                          Tambah Jadwal
+                        </button>
+                      </div>
+                    )}
+                  </FieldArray>
+                </div>
+
+                <div className="flex items-center">
+                  <Field
+                    type="checkbox"
+                    name="isActive"
+                    className="h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
+                  />
+                  <label className="ml-2 block text-sm text-gray-700">
+                    Program Aktif
+                  </label>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 disabled:opacity-50"
+                  >
+                    {isSubmitting ? 'Menyimpan...' : (editingProgram ? 'Update' : 'Simpan')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400"
+                  >
+                    Batal
+                  </button>
+                </div>
+              </Form>
+            )}
+          </Formik>
         </div>
       )}
 

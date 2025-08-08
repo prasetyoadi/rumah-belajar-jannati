@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Formik, Form, Field, ErrorMessage } from 'formik'
+import * as Yup from 'yup'
 import { useAdminStore } from '@/store/useAdminStore'
 import { FAQ } from '@/types'
 import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
@@ -16,6 +18,26 @@ const categoryOptions = [
   { value: 'payment', label: 'Pembayaran' },
 ]
 
+// Validation schema
+const faqValidationSchema = Yup.object({
+  question: Yup.string()
+    .required('Pertanyaan harus diisi')
+    .min(10, 'Pertanyaan minimal 10 karakter')
+    .max(500, 'Pertanyaan maksimal 500 karakter'),
+  answer: Yup.string()
+    .required('Jawaban harus diisi')
+    .min(20, 'Jawaban minimal 20 karakter')
+    .max(2000, 'Jawaban maksimal 2000 karakter'),
+  category: Yup.string()
+    .required('Kategori harus dipilih')
+    .oneOf(categoryOptions.map(c => c.value), 'Kategori tidak valid'),
+  order: Yup.number()
+    .required('Urutan harus diisi')
+    .min(1, 'Urutan minimal 1')
+    .integer('Urutan harus berupa angka bulat'),
+  isActive: Yup.boolean()
+})
+
 export default function FAQsManager({ isActive }: FAQsManagerProps) {
   const {
     faqs,
@@ -28,13 +50,27 @@ export default function FAQsManager({ isActive }: FAQsManagerProps) {
 
   const [showForm, setShowForm] = useState(false)
   const [editingFaq, setEditingFaq] = useState<FAQ | null>(null)
-  const [formData, setFormData] = useState<Partial<FAQ>>({
-    question: '',
-    answer: '',
-    category: 'general',
-    isActive: true,
-    order: 1,
-  })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Initial form values
+  const getInitialValues = (): Partial<FAQ> => {
+    if (editingFaq) {
+      return {
+        question: editingFaq.question || '',
+        answer: editingFaq.answer || '',
+        category: editingFaq.category || 'general',
+        isActive: editingFaq.isActive !== undefined ? editingFaq.isActive : true,
+        order: editingFaq.order || 1,
+      }
+    }
+    return {
+      question: '',
+      answer: '',
+      category: 'general',
+      isActive: true,
+      order: faqs.length + 1,
+    }
+  }
 
   useEffect(() => {
     if (isActive && faqs.length === 0) {
@@ -42,8 +78,8 @@ export default function FAQsManager({ isActive }: FAQsManagerProps) {
     }
   }, [isActive, faqs.length, fetchFaqs])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (values: Partial<FAQ>) => {
+    setIsSubmitting(true)
     
     try {
       if (editingFaq) {
@@ -51,36 +87,43 @@ export default function FAQsManager({ isActive }: FAQsManagerProps) {
         const response = await fetch('/api/faqs', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: editingFaq.id, ...formData }),
+          credentials: 'include',
+          body: JSON.stringify({ id: editingFaq.id, ...values }),
         })
         
         if (response.ok) {
           const updatedFaq = await response.json()
           updateFaq(editingFaq.id, updatedFaq)
+        } else {
+          throw new Error('Failed to update FAQ')
         }
       } else {
         // Create new FAQ
         const response = await fetch('/api/faqs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
+          credentials: 'include',
+          body: JSON.stringify(values),
         })
         
         if (response.ok) {
           const newFaq = await response.json()
           addFaq(newFaq)
+        } else {
+          throw new Error('Failed to create FAQ')
         }
       }
       
       resetForm()
     } catch (error) {
       console.error('Error saving FAQ:', error)
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   const handleEdit = (faq: FAQ) => {
     setEditingFaq(faq)
-    setFormData(faq)
     setShowForm(true)
   }
 
@@ -89,10 +132,13 @@ export default function FAQsManager({ isActive }: FAQsManagerProps) {
       try {
         const response = await fetch(`/api/faqs?id=${id}`, {
           method: 'DELETE',
+          credentials: 'include',
         })
         
         if (response.ok) {
           deleteFaq(id)
+        } else {
+          throw new Error('Failed to delete FAQ')
         }
       } catch (error) {
         console.error('Error deleting FAQ:', error)
@@ -103,13 +149,6 @@ export default function FAQsManager({ isActive }: FAQsManagerProps) {
   const resetForm = () => {
     setShowForm(false)
     setEditingFaq(null)
-    setFormData({
-      question: '',
-      answer: '',
-      category: 'general',
-      isActive: true,
-      order: faqs.length + 1,
-    })
   }
 
   const getCategoryLabel = (category: string) => {
@@ -138,95 +177,107 @@ export default function FAQsManager({ isActive }: FAQsManagerProps) {
             {editingFaq ? 'Edit FAQ' : 'Tambah FAQ Baru'}
           </h3>
           
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Kategori
-                </label>
-                <select
-                  value={formData.category || 'general'}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value as any })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  required
-                >
-                  {categoryOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+          <Formik
+            key={editingFaq?.id || 'new'}
+            initialValues={getInitialValues()}
+            validationSchema={faqValidationSchema}
+            onSubmit={handleSubmit}
+            enableReinitialize={true}
+          >
+            {({ isSubmitting: formikSubmitting }) => (
+              <Form className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Kategori
+                    </label>
+                    <Field
+                      as="select"
+                      name="category"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    >
+                      {categoryOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </Field>
+                    <ErrorMessage name="category" component="div" className="text-red-500 text-sm mt-1" />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Urutan
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={formData.order || 1}
-                  onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  required
-                />
-              </div>
-            </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Urutan
+                    </label>
+                    <Field
+                      type="number"
+                      name="order"
+                      min="1"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    />
+                    <ErrorMessage name="order" component="div" className="text-red-500 text-sm mt-1" />
+                  </div>
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Pertanyaan
-              </label>
-              <input
-                type="text"
-                value={formData.question || ''}
-                onChange={(e) => setFormData({ ...formData, question: e.target.value })}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                required
-              />
-            </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Pertanyaan
+                  </label>
+                  <Field
+                    type="text"
+                    name="question"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                  />
+                  <ErrorMessage name="question" component="div" className="text-red-500 text-sm mt-1" />
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Jawaban
-              </label>
-              <textarea
-                value={formData.answer || ''}
-                onChange={(e) => setFormData({ ...formData, answer: e.target.value })}
-                rows={4}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                required
-              />
-            </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Jawaban
+                  </label>
+                  <Field
+                    as="textarea"
+                    name="answer"
+                    rows={4}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                  />
+                  <ErrorMessage name="answer" component="div" className="text-red-500 text-sm mt-1" />
+                </div>
 
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                checked={formData.isActive || false}
-                onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                className="h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
-              />
-              <label className="ml-2 block text-sm text-gray-700">
-                FAQ Aktif
-              </label>
-            </div>
+                <div className="flex items-center">
+                  <Field
+                    type="checkbox"
+                    name="isActive"
+                    className="h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
+                  />
+                  <label className="ml-2 block text-sm text-gray-700">
+                    FAQ Aktif
+                  </label>
+                </div>
 
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700"
-              >
-                {editingFaq ? 'Update' : 'Simpan'}
-              </button>
-              <button
-                type="button"
-                onClick={resetForm}
-                className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400"
-              >
-                Batal
-              </button>
-            </div>
-          </form>
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || formikSubmitting}
+                    className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmitting || formikSubmitting 
+                      ? 'Menyimpan...' 
+                      : editingFaq ? 'Update' : 'Simpan'
+                    }
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    disabled={isSubmitting || formikSubmitting}
+                    className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Batal
+                  </button>
+                </div>
+              </Form>
+            )}
+          </Formik>
         </div>
       )}
 

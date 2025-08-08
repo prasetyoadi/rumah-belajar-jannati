@@ -10,12 +10,13 @@ export interface AuthUser {
 
 interface AuthState {
   user: AuthUser | null
+  token: string | null
   isAuthenticated: boolean
   isLoading: boolean
   error: string | null
   
   // Actions
-  login: (email: string, password: string) => Promise<boolean>
+  login: (token: string, user: AuthUser) => void
   logout: () => void
   register: (userData: {
     name: string
@@ -37,54 +38,34 @@ export const useAuthStore = create<AuthState>()(
     persist(
       (set, get) => ({
         user: null,
+        token: null,
         isAuthenticated: false,
         isLoading: false,
         error: null,
         
-        login: async (email: string, password: string) => {
-          set({ isLoading: true, error: null })
-          
-          try {
-            const response = await fetch('/api/auth/login', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ email, password }),
-            })
-            
-            const data = await response.json()
-            
-            if (response.ok) {
-              set({
-                user: data.user,
-                isAuthenticated: true,
-                isLoading: false,
-                error: null,
-              })
-              return true
-            } else {
-              set({
-                error: data.error || 'Login failed',
-                isLoading: false,
-              })
-              return false
-            }
-          } catch (error) {
-            set({
-              error: 'Network error occurred',
-              isLoading: false,
-            })
-            return false
-          }
+        login: (token: string, user: AuthUser) => {
+          set({
+            user,
+            token,
+            isAuthenticated: true,
+            error: null,
+          })
         },
         
-        logout: () => {
-          // Call logout API
-          fetch('/api/auth/logout', { method: 'POST' })
+        logout: async () => {
+          // Call logout API to clear cookies
+          try {
+            await fetch('/api/auth/logout', { 
+              method: 'POST',
+              credentials: 'include' // Include cookies
+            })
+          } catch (error) {
+            console.error('Logout API error:', error)
+          }
           
           set({
             user: null,
+            token: null,
             isAuthenticated: false,
             error: null,
           })
@@ -235,25 +216,35 @@ export const useAuthStore = create<AuthState>()(
           set({ isLoading: true })
           
           try {
-            const response = await fetch('/api/auth/me')
+            const response = await fetch('/api/auth/me', {
+              method: 'GET',
+              credentials: 'include', // Include cookies
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            })
             
             if (response.ok) {
               const data = await response.json()
               set({
                 user: data.user,
+                token: data.token,
                 isAuthenticated: true,
                 isLoading: false,
               })
             } else {
               set({
                 user: null,
+                token: null,
                 isAuthenticated: false,
                 isLoading: false,
               })
             }
           } catch (error) {
+            console.error('Auth check error:', error)
             set({
               user: null,
+              token: null,
               isAuthenticated: false,
               isLoading: false,
             })
@@ -268,6 +259,7 @@ export const useAuthStore = create<AuthState>()(
         name: 'auth-store',
         partialize: (state) => ({
           user: state.user,
+          token: state.token,
           isAuthenticated: state.isAuthenticated,
         }),
       }

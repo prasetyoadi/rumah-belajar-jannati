@@ -1,12 +1,32 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Formik, Form, Field, ErrorMessage, FieldArray } from 'formik'
+import * as Yup from 'yup'
 import { useAdminStore } from '@/store/useAdminStore'
 import { Instructor } from '@/types'
 import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
 
 interface InstructorsManagerProps {
   isActive: boolean
+}
+
+const instructorSchema = Yup.object().shape({
+  name: Yup.string().required('Nama wajib diisi'),
+  specialization: Yup.string().required('Spesialisasi wajib diisi'),
+  experience: Yup.string().required('Pengalaman wajib diisi'),
+  bio: Yup.string().required('Bio wajib diisi'),
+  qualifications: Yup.array().of(Yup.string()).min(1, 'Minimal 1 kualifikasi harus diisi'),
+})
+
+const initialValues = {
+  name: '',
+  specialization: '',
+  qualifications: [''],
+  experience: '',
+  bio: '',
+  image: '',
+  isActive: true,
 }
 
 export default function InstructorsManager({ isActive }: InstructorsManagerProps) {
@@ -21,15 +41,23 @@ export default function InstructorsManager({ isActive }: InstructorsManagerProps
 
   const [showForm, setShowForm] = useState(false)
   const [editingInstructor, setEditingInstructor] = useState<Instructor | null>(null)
-  const [formData, setFormData] = useState<Partial<Instructor>>({
-    name: '',
-    specialization: '',
-    qualifications: [],
-    experience: '',
-    bio: '',
-    image: '',
-    isActive: true,
-  })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Initial form values
+  const getInitialValues = () => {
+    if (editingInstructor) {
+      return {
+        name: editingInstructor.name || '',
+        specialization: editingInstructor.specialization || '',
+        qualifications: editingInstructor.qualifications || [''],
+        experience: editingInstructor.experience || '',
+        bio: editingInstructor.bio || '',
+        image: editingInstructor.image || '',
+        isActive: editingInstructor.isActive !== undefined ? editingInstructor.isActive : true,
+      }
+    }
+    return initialValues
+  }
 
   useEffect(() => {
     if (isActive && instructors.length === 0) {
@@ -37,8 +65,8 @@ export default function InstructorsManager({ isActive }: InstructorsManagerProps
     }
   }, [isActive, instructors.length, fetchInstructors])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (values: any) => {
+    setIsSubmitting(true)
     
     try {
       if (editingInstructor) {
@@ -46,36 +74,43 @@ export default function InstructorsManager({ isActive }: InstructorsManagerProps
         const response = await fetch('/api/instructors', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: editingInstructor.id, ...formData }),
+          credentials: 'include',
+          body: JSON.stringify({ id: editingInstructor.id, ...values }),
         })
         
         if (response.ok) {
           const updatedInstructor = await response.json()
           updateInstructor(editingInstructor.id, updatedInstructor)
+        } else {
+          throw new Error('Failed to update instructor')
         }
       } else {
         // Create new instructor
         const response = await fetch('/api/instructors', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
+          credentials: 'include',
+          body: JSON.stringify(values),
         })
         
         if (response.ok) {
           const newInstructor = await response.json()
           addInstructor(newInstructor)
+        } else {
+          throw new Error('Failed to create instructor')
         }
       }
       
       resetForm()
     } catch (error) {
       console.error('Error saving instructor:', error)
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   const handleEdit = (instructor: Instructor) => {
     setEditingInstructor(instructor)
-    setFormData(instructor)
     setShowForm(true)
   }
 
@@ -84,10 +119,13 @@ export default function InstructorsManager({ isActive }: InstructorsManagerProps
       try {
         const response = await fetch(`/api/instructors?id=${id}`, {
           method: 'DELETE',
+          credentials: 'include',
         })
         
         if (response.ok) {
           deleteInstructor(id)
+        } else {
+          throw new Error('Failed to delete instructor')
         }
       } catch (error) {
         console.error('Error deleting instructor:', error)
@@ -98,20 +136,6 @@ export default function InstructorsManager({ isActive }: InstructorsManagerProps
   const resetForm = () => {
     setShowForm(false)
     setEditingInstructor(null)
-    setFormData({
-      name: '',
-      specialization: '',
-      qualifications: [],
-      experience: '',
-      bio: '',
-      image: '',
-      isActive: true,
-    })
-  }
-
-  const handleQualificationsChange = (value: string) => {
-    const qualifications = value.split('\n').filter(q => q.trim() !== '')
-    setFormData({ ...formData, qualifications })
   }
 
   if (!isActive) return null
@@ -135,117 +159,153 @@ export default function InstructorsManager({ isActive }: InstructorsManagerProps
             {editingInstructor ? 'Edit Instructor' : 'Tambah Instructor Baru'}
           </h3>
           
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nama Lengkap
-                </label>
-                <input
-                  type="text"
-                  value={formData.name || ''}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  required
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Spesialisasi
-                </label>
-                <input
-                  type="text"
-                  value={formData.specialization || ''}
-                  onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  required
-                />
-              </div>
+          <Formik
+            key={editingInstructor?.id || 'new'}
+            initialValues={getInitialValues()}
+            validationSchema={instructorSchema}
+            onSubmit={handleSubmit}
+            enableReinitialize={true}
+          >
+            {({ isSubmitting: formikSubmitting, values, setFieldValue }) => (
+              <Form className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Nama Lengkap
+                    </label>
+                    <Field
+                      type="text"
+                      name="name"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    />
+                    <ErrorMessage name="name" component="div" className="text-red-500 text-sm mt-1" />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Spesialisasi
+                    </label>
+                    <Field
+                      type="text"
+                      name="specialization"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    />
+                    <ErrorMessage name="specialization" component="div" className="text-red-500 text-sm mt-1" />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Pengalaman
-                </label>
-                <input
-                  type="text"
-                  value={formData.experience || ''}
-                  onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  placeholder="contoh: 5 tahun"
-                  required
-                />
-              </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Pengalaman
+                    </label>
+                    <Field
+                      type="text"
+                      name="experience"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                      placeholder="contoh: 5 tahun"
+                    />
+                    <ErrorMessage name="experience" component="div" className="text-red-500 text-sm mt-1" />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  URL Foto (opsional)
-                </label>
-                <input
-                  type="url"
-                  value={formData.image || ''}
-                  onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  placeholder="https://example.com/photo.jpg"
-                />
-              </div>
-            </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      URL Foto (opsional)
+                    </label>
+                    <Field
+                      type="url"
+                      name="image"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                      placeholder="https://example.com/photo.jpg"
+                    />
+                    <ErrorMessage name="image" component="div" className="text-red-500 text-sm mt-1" />
+                  </div>
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Kualifikasi (satu per baris)
-              </label>
-              <textarea
-                value={formData.qualifications?.join('\n') || ''}
-                onChange={(e) => handleQualificationsChange(e.target.value)}
-                rows={4}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                placeholder="S1 Pendidikan Agama Islam&#10;Tahfidz 30 Juz&#10;Sertifikat Metode Ummi"
-                required
-              />
-            </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Kualifikasi
+                  </label>
+                  <FieldArray name="qualifications">
+                    {({ push, remove }) => (
+                      <div className="space-y-2">
+                        {values.qualifications.map((qualification, index) => (
+                          <div key={index} className="flex gap-2">
+                            <Field
+                              type="text"
+                              name={`qualifications.${index}`}
+                              className="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                              placeholder="Masukkan kualifikasi"
+                            />
+                            {values.qualifications.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => remove(index)}
+                                className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                              >
+                                Hapus
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => push('')}
+                          className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                        >
+                          Tambah Kualifikasi
+                        </button>
+                      </div>
+                    )}
+                  </FieldArray>
+                  <ErrorMessage name="qualifications" component="div" className="text-red-500 text-sm mt-1" />
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Biografi
-              </label>
-              <textarea
-                value={formData.bio || ''}
-                onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                rows={3}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                required
-              />
-            </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Biografi
+                  </label>
+                  <Field
+                    as="textarea"
+                    name="bio"
+                    rows={3}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                  />
+                  <ErrorMessage name="bio" component="div" className="text-red-500 text-sm mt-1" />
+                </div>
 
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                checked={formData.isActive || false}
-                onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                className="h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
-              />
-              <label className="ml-2 block text-sm text-gray-700">
-                Instructor Aktif
-              </label>
-            </div>
+                <div className="flex items-center">
+                  <Field
+                    type="checkbox"
+                    name="isActive"
+                    className="h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
+                  />
+                  <label className="ml-2 block text-sm text-gray-700">
+                    Instructor Aktif
+                  </label>
+                </div>
 
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700"
-              >
-                {editingInstructor ? 'Update' : 'Simpan'}
-              </button>
-              <button
-                type="button"
-                onClick={resetForm}
-                className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400"
-              >
-                Batal
-              </button>
-            </div>
-          </form>
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || formikSubmitting}
+                    className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmitting || formikSubmitting 
+                      ? 'Menyimpan...' 
+                      : editingInstructor ? 'Update' : 'Simpan'
+                    }
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    disabled={isSubmitting || formikSubmitting}
+                    className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Batal
+                  </button>
+                </div>
+              </Form>
+            )}
+          </Formik>
         </div>
       )}
 

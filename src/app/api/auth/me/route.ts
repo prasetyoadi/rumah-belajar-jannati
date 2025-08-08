@@ -44,7 +44,10 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { user },
+      { 
+        user,
+        token: authToken // Include the token in response
+      },
       { status: 200 }
     )
 

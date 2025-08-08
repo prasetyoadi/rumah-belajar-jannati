@@ -31,6 +31,7 @@ export const useLogin = () => {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Include cookies
         body: JSON.stringify(credentials),
       })
       
@@ -74,6 +75,7 @@ export const useLogout = () => {
     mutationFn: async () => {
       const response = await fetch('/api/auth/logout', {
         method: 'POST',
+        credentials: 'include', // Include cookies
       })
       
       if (!response.ok) {

@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Formik, Form, Field, ErrorMessage } from 'formik'
+import * as Yup from 'yup'
 import { useAdminStore } from '@/store/useAdminStore'
 import { Testimonial } from '@/types'
 import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
@@ -8,6 +10,31 @@ import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
 interface TestimonialsManagerProps {
   isActive: boolean
 }
+
+// Validation schema
+const testimonialValidationSchema = Yup.object({
+  name: Yup.string()
+    .required('Nama harus diisi')
+    .min(2, 'Nama minimal 2 karakter')
+    .max(100, 'Nama maksimal 100 karakter'),
+  role: Yup.string()
+    .required('Peran harus diisi')
+    .min(2, 'Peran minimal 2 karakter')
+    .max(100, 'Peran maksimal 100 karakter'),
+  content: Yup.string()
+    .required('Isi testimonial harus diisi')
+    .min(20, 'Isi testimonial minimal 20 karakter')
+    .max(1000, 'Isi testimonial maksimal 1000 karakter'),
+  rating: Yup.number()
+    .required('Rating harus diisi')
+    .min(1, 'Rating minimal 1')
+    .max(5, 'Rating maksimal 5')
+    .integer('Rating harus berupa angka bulat'),
+  image: Yup.string()
+    .url('Image harus berupa URL yang valid')
+    .nullable(),
+  isActive: Yup.boolean()
+})
 
 export default function TestimonialsManager({ isActive }: TestimonialsManagerProps) {
   const {
@@ -21,14 +48,29 @@ export default function TestimonialsManager({ isActive }: TestimonialsManagerPro
 
   const [showForm, setShowForm] = useState(false)
   const [editingTestimonial, setEditingTestimonial] = useState<Testimonial | null>(null)
-  const [formData, setFormData] = useState<Partial<Testimonial>>({
-    name: '',
-    role: '',
-    content: '',
-    rating: 5,
-    image: '',
-    isActive: true,
-  })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Initial form values
+  const getInitialValues = (): Partial<Testimonial> => {
+    if (editingTestimonial) {
+      return {
+        name: editingTestimonial.name || '',
+        role: editingTestimonial.role || '',
+        content: editingTestimonial.content || '',
+        rating: editingTestimonial.rating || 5,
+        image: editingTestimonial.image || '',
+        isActive: editingTestimonial.isActive !== undefined ? editingTestimonial.isActive : true,
+      }
+    }
+    return {
+      name: '',
+      role: '',
+      content: '',
+      rating: 5,
+      image: '',
+      isActive: true,
+    }
+  }
 
   useEffect(() => {
     if (isActive && testimonials.length === 0) {
@@ -36,8 +78,8 @@ export default function TestimonialsManager({ isActive }: TestimonialsManagerPro
     }
   }, [isActive, testimonials.length, fetchTestimonials])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (values: Partial<Testimonial>) => {
+    setIsSubmitting(true)
     
     try {
       if (editingTestimonial) {
@@ -45,36 +87,43 @@ export default function TestimonialsManager({ isActive }: TestimonialsManagerPro
         const response = await fetch('/api/testimonials', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: editingTestimonial.id, ...formData }),
+          credentials: 'include',
+          body: JSON.stringify({ id: editingTestimonial.id, ...values }),
         })
         
         if (response.ok) {
           const updatedTestimonial = await response.json()
           updateTestimonial(editingTestimonial.id, updatedTestimonial)
+        } else {
+          throw new Error('Failed to update testimonial')
         }
       } else {
         // Create new testimonial
         const response = await fetch('/api/testimonials', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
+          credentials: 'include',
+          body: JSON.stringify(values),
         })
         
         if (response.ok) {
           const newTestimonial = await response.json()
           addTestimonial(newTestimonial)
+        } else {
+          throw new Error('Failed to create testimonial')
         }
       }
       
       resetForm()
     } catch (error) {
       console.error('Error saving testimonial:', error)
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   const handleEdit = (testimonial: Testimonial) => {
     setEditingTestimonial(testimonial)
-    setFormData(testimonial)
     setShowForm(true)
   }
 
@@ -83,10 +132,13 @@ export default function TestimonialsManager({ isActive }: TestimonialsManagerPro
       try {
         const response = await fetch(`/api/testimonials?id=${id}`, {
           method: 'DELETE',
+          credentials: 'include',
         })
         
         if (response.ok) {
           deleteTestimonial(id)
+        } else {
+          throw new Error('Failed to delete testimonial')
         }
       } catch (error) {
         console.error('Error deleting testimonial:', error)
@@ -97,14 +149,6 @@ export default function TestimonialsManager({ isActive }: TestimonialsManagerPro
   const resetForm = () => {
     setShowForm(false)
     setEditingTestimonial(null)
-    setFormData({
-      name: '',
-      role: '',
-      content: '',
-      rating: 5,
-      image: '',
-      isActive: true,
-    })
   }
 
   const renderStars = (rating: number) => {
@@ -136,109 +180,121 @@ export default function TestimonialsManager({ isActive }: TestimonialsManagerPro
             {editingTestimonial ? 'Edit Testimonial' : 'Tambah Testimonial Baru'}
           </h3>
           
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nama
-                </label>
-                <input
-                  type="text"
-                  value={formData.name || ''}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  required
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Peran/Jabatan
-                </label>
-                <input
-                  type="text"
-                  value={formData.role || ''}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  placeholder="contoh: Orang Tua Murid"
-                  required
-                />
-              </div>
+          <Formik
+            key={editingTestimonial?.id || 'new'}
+            initialValues={getInitialValues()}
+            validationSchema={testimonialValidationSchema}
+            onSubmit={handleSubmit}
+            enableReinitialize={true}
+          >
+            {({ isSubmitting: formikSubmitting }) => (
+              <Form className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Nama
+                    </label>
+                    <Field
+                      type="text"
+                      name="name"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    />
+                    <ErrorMessage name="name" component="div" className="text-red-500 text-sm mt-1" />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Peran/Jabatan
+                    </label>
+                    <Field
+                      type="text"
+                      name="role"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                      placeholder="contoh: Orang Tua Murid"
+                    />
+                    <ErrorMessage name="role" component="div" className="text-red-500 text-sm mt-1" />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Rating (1-5)
-                </label>
-                <select
-                  value={formData.rating || 5}
-                  onChange={(e) => setFormData({ ...formData, rating: parseInt(e.target.value) })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  required
-                >
-                  <option value={5}>5 Bintang</option>
-                  <option value={4}>4 Bintang</option>
-                  <option value={3}>3 Bintang</option>
-                  <option value={2}>2 Bintang</option>
-                  <option value={1}>1 Bintang</option>
-                </select>
-              </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Rating (1-5)
+                    </label>
+                    <Field
+                      as="select"
+                      name="rating"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    >
+                      <option value={5}>5 Bintang</option>
+                      <option value={4}>4 Bintang</option>
+                      <option value={3}>3 Bintang</option>
+                      <option value={2}>2 Bintang</option>
+                      <option value={1}>1 Bintang</option>
+                    </Field>
+                    <ErrorMessage name="rating" component="div" className="text-red-500 text-sm mt-1" />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  URL Foto (opsional)
-                </label>
-                <input
-                  type="url"
-                  value={formData.image || ''}
-                  onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  placeholder="https://example.com/photo.jpg"
-                />
-              </div>
-            </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      URL Foto (opsional)
+                    </label>
+                    <Field
+                      type="url"
+                      name="image"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                      placeholder="https://example.com/photo.jpg"
+                    />
+                    <ErrorMessage name="image" component="div" className="text-red-500 text-sm mt-1" />
+                  </div>
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Testimonial
-              </label>
-              <textarea
-                value={formData.content || ''}
-                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                rows={4}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                placeholder="Tulis testimonial di sini..."
-                required
-              />
-            </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Testimonial
+                  </label>
+                  <Field
+                    as="textarea"
+                    name="content"
+                    rows={4}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    placeholder="Tulis testimonial di sini..."
+                  />
+                  <ErrorMessage name="content" component="div" className="text-red-500 text-sm mt-1" />
+                </div>
 
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                checked={formData.isActive || false}
-                onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                className="h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
-              />
-              <label className="ml-2 block text-sm text-gray-700">
-                Testimonial Aktif
-              </label>
-            </div>
+                <div className="flex items-center">
+                  <Field
+                    type="checkbox"
+                    name="isActive"
+                    className="h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
+                  />
+                  <label className="ml-2 block text-sm text-gray-700">
+                    Testimonial Aktif
+                  </label>
+                </div>
 
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700"
-              >
-                {editingTestimonial ? 'Update' : 'Simpan'}
-              </button>
-              <button
-                type="button"
-                onClick={resetForm}
-                className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400"
-              >
-                Batal
-              </button>
-            </div>
-          </form>
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || formikSubmitting}
+                    className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmitting || formikSubmitting 
+                      ? 'Menyimpan...' 
+                      : editingTestimonial ? 'Update' : 'Simpan'
+                    }
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    disabled={isSubmitting || formikSubmitting}
+                    className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Batal
+                  </button>
+                </div>
+              </Form>
+            )}
+          </Formik>
         </div>
       )}
 

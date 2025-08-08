@@ -1,25 +1,43 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Formik, Form, Field, ErrorMessage } from 'formik'
+import * as Yup from 'yup'
 import { useAdminStore } from '@/store/useAdminStore'
 import { Gallery } from '@/types'
 import { PlusIcon, PencilIcon, TrashIcon, PhotoIcon } from '@heroicons/react/24/outline'
 
-interface GalleryForm {
-  title: string
-  description: string
-  imageUrl: string
-  category: 'classroom' | 'playground' | 'facility' | 'activity' | 'event' | ''
+interface GalleryManagerProps {
+  isActive: boolean
 }
 
-const initialForm: GalleryForm = {
-  title: '',
-  description: '',
-  imageUrl: '',
-  category: ''
-}
+const categoryOptions = [
+  { value: 'classroom', label: 'Ruang Kelas' },
+  { value: 'playground', label: 'Area Bermain' },
+  { value: 'facility', label: 'Fasilitas' },
+  { value: 'activity', label: 'Kegiatan' },
+  { value: 'event', label: 'Acara' },
+]
 
-export default function GalleryManager() {
+// Validation schema
+const galleryValidationSchema = Yup.object({
+  title: Yup.string()
+    .required('Judul harus diisi')
+    .min(3, 'Judul minimal 3 karakter')
+    .max(100, 'Judul maksimal 100 karakter'),
+  description: Yup.string()
+    .required('Deskripsi harus diisi')
+    .min(10, 'Deskripsi minimal 10 karakter')
+    .max(500, 'Deskripsi maksimal 500 karakter'),
+  imageUrl: Yup.string()
+    .required('URL gambar harus diisi')
+    .url('URL gambar harus valid'),
+  category: Yup.string()
+    .required('Kategori harus dipilih')
+    .oneOf(categoryOptions.map(c => c.value), 'Kategori tidak valid'),
+})
+
+export default function GalleryManager({ isActive }: GalleryManagerProps) {
   const {
     gallery,
     isLoadingGallery,
@@ -30,80 +48,103 @@ export default function GalleryManager() {
     deleteGalleryItem
   } = useAdminStore()
 
-  const [isOpen, setIsOpen] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [form, setForm] = useState<GalleryForm>(initialForm)
+  const [showForm, setShowForm] = useState(false)
+  const [editingGallery, setEditingGallery] = useState<Gallery | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Initial form values
+  const getInitialValues = (): Partial<Gallery> => {
+    if (editingGallery) {
+      return {
+        title: editingGallery.title || '',
+        description: editingGallery.description || '',
+        imageUrl: editingGallery.imageUrl || '',
+        category: editingGallery.category as 'classroom' | 'playground' | 'facility' | 'activity' | 'event' | undefined,
+      }
+    }
+    return {
+      title: '',
+      description: '',
+      imageUrl: '',
+      category: undefined,
+    }
+  }
 
   useEffect(() => {
-    fetchGallery()
-  }, [fetchGallery])
+    if (isActive && gallery.length === 0) {
+      fetchGallery()
+    }
+  }, [isActive, gallery.length, fetchGallery])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (values: Partial<Gallery>) => {
+    setIsSubmitting(true)
+    
     try {
-      if (!form.category) {
-        alert('Please select a category')
-        return
-      }
-
       const galleryData: Gallery = {
-        id: editingId || Date.now().toString(),
-        ...form,
-        category: form.category as 'classroom' | 'playground' | 'facility' | 'activity' | 'event',
+        id: editingGallery?.id || Date.now().toString(),
+        title: values.title || '',
+        description: values.description || '',
+        imageUrl: values.imageUrl || '',
+        category: values.category as 'classroom' | 'playground' | 'facility' | 'activity' | 'event',
         isActive: true,
         order: 0,
         tags: [],
-        createdAt: new Date().toISOString(),
+        createdAt: editingGallery?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }
 
-      if (editingId) {
+      if (editingGallery) {
         // Update existing gallery item
-        const response = await fetch(`/api/gallery/${editingId}`, {
+        const response = await fetch(`/api/gallery/${editingGallery.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify(galleryData)
         })
         if (response.ok) {
-          updateGalleryItem(editingId, galleryData)
+          updateGalleryItem(editingGallery.id, galleryData)
+        } else {
+          throw new Error('Failed to update gallery item')
         }
       } else {
         // Add new gallery item
         const response = await fetch('/api/gallery', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify(galleryData)
         })
         if (response.ok) {
           addGalleryItem(galleryData)
+        } else {
+          throw new Error('Failed to create gallery item')
         }
       }
 
       handleClose()
     } catch (error) {
       console.error('Error saving gallery item:', error)
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   const handleEdit = (item: Gallery) => {
-    setForm({
-      title: item.title,
-      description: item.description,
-      imageUrl: item.imageUrl,
-      category: item.category
-    })
-    setEditingId(item.id)
-    setIsOpen(true)
+    setEditingGallery(item)
+    setShowForm(true)
   }
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this gallery item?')) {
+    if (confirm('Apakah Anda yakin ingin menghapus item galeri ini?')) {
       try {
         const response = await fetch(`/api/gallery/${id}`, {
-          method: 'DELETE'
+          method: 'DELETE',
+          credentials: 'include',
         })
         if (response.ok) {
           deleteGalleryItem(id)
+        } else {
+          throw new Error('Failed to delete gallery item')
         }
       } catch (error) {
         console.error('Error deleting gallery item:', error)
@@ -112,26 +153,25 @@ export default function GalleryManager() {
   }
 
   const handleClose = () => {
-    setIsOpen(false)
-    setEditingId(null)
-    setForm(initialForm)
+    setShowForm(false)
+    setEditingGallery(null)
   }
 
-  const categories = ['classroom', 'playground', 'facility', 'activity', 'event']
+  if (!isActive) return null
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Gallery Management</h2>
-          <p className="text-gray-600">Manage facility photos and gallery content</p>
+          <h2 className="text-2xl font-bold text-gray-900">Kelola Galeri</h2>
+          <p className="text-gray-600">Kelola foto fasilitas dan konten galeri</p>
         </div>
         <button
-          onClick={() => setIsOpen(true)}
-          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
+          onClick={() => setShowForm(true)}
+          className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 flex items-center gap-2"
         >
           <PlusIcon className="h-5 w-5" />
-          Add Photo
+          Tambah Foto
         </button>
       </div>
 
@@ -184,69 +224,66 @@ export default function GalleryManager() {
         </div>
       )}
 
-      {/* Modal */}
-      {isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">
-                  {editingId ? 'Edit Gallery Item' : 'Add Gallery Item'}
-                </h3>
-                <button
-                  onClick={handleClose}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  ×
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Form Modal */}
+      {showForm && (
+        <div className="bg-white p-6 rounded-lg border shadow-sm">
+          <h3 className="text-lg font-semibold mb-4">
+            {editingGallery ? 'Edit Item Galeri' : 'Tambah Item Galeri Baru'}
+          </h3>
+          
+          <Formik
+            key={editingGallery?.id || 'new'}
+            initialValues={getInitialValues()}
+            validationSchema={galleryValidationSchema}
+            onSubmit={handleSubmit}
+            enableReinitialize={true}
+          >
+            {({ isSubmitting: formikSubmitting, values }) => (
+              <Form className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Title
+                    Judul
                   </label>
-                  <input
+                  <Field
                     type="text"
-                    value={form.title}
-                    onChange={(e) => setForm({ ...form, title: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    required
+                    name="title"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                   />
+                  <ErrorMessage name="title" component="div" className="text-red-500 text-sm mt-1" />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Description
+                    Deskripsi
                   </label>
-                  <textarea
-                    value={form.description}
-                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  <Field
+                    as="textarea"
+                    name="description"
                     rows={3}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    required
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                   />
+                  <ErrorMessage name="description" component="div" className="text-red-500 text-sm mt-1" />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Image URL
+                    URL Gambar
                   </label>
-                  <input
+                  <Field
                     type="url"
-                    value={form.imageUrl}
-                    onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    required
+                    name="imageUrl"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                   />
-                  {form.imageUrl && (
+                  <ErrorMessage name="imageUrl" component="div" className="text-red-500 text-sm mt-1" />
+                  
+                  {values.imageUrl && (
                     <div className="mt-2">
                       <img
-                        src={form.imageUrl}
+                        src={values.imageUrl}
                         alt="Preview"
-                        className="w-full h-32 object-cover rounded border"
+                        className="h-32 w-auto rounded border border-gray-300"
                         onError={(e) => {
-                          e.currentTarget.src = '/placeholder-image.jpg'
+                          e.currentTarget.style.display = 'none'
                         }}
                       />
                     </div>
@@ -255,41 +292,46 @@ export default function GalleryManager() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Category
+                    Kategori
                   </label>
-                  <select
-                    value={form.category}
-                    onChange={(e) => setForm({ ...form, category: e.target.value as 'classroom' | 'playground' | 'facility' | 'activity' | 'event' | '' })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    required
+                  <Field
+                    as="select"
+                    name="category"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                   >
-                    <option value="">Select Category</option>
-                    {categories.map((category) => (
-                      <option key={category} value={category}>
-                        {category}
+                    <option value="">Pilih Kategori</option>
+                    {categoryOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
                       </option>
                     ))}
-                  </select>
+                  </Field>
+                  <ErrorMessage name="category" component="div" className="text-red-500 text-sm mt-1" />
                 </div>
 
-                <div className="flex gap-3 pt-4">
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || formikSubmitting}
+                    className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmitting || formikSubmitting 
+                      ? 'Menyimpan...' 
+                      : editingGallery ? 'Update' : 'Simpan'
+                    }
+                  </button>
                   <button
                     type="button"
                     onClick={handleClose}
-                    className="flex-1 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50"
+                    disabled={isSubmitting || formikSubmitting}
+                    className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
-                  >
-                    {editingId ? 'Update' : 'Add'} Photo
+                    Batal
                   </button>
                 </div>
-              </form>
-            </div>
-          </div>
+              </Form>
+            )}
+          </Formik>
         </div>
       )}
     </div>
