@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client'
+import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
@@ -6,17 +7,22 @@ async function main() {
   console.log('🌱 Seeding database...')
 
   // Create admin user
+  const hashedPassword = await bcrypt.hash('admin123', 12)
   const adminUser = await prisma.user.upsert({
     where: { email: 'admin@jannati.com' },
     update: {},
     create: {
       email: 'admin@jannati.com',
+      password: hashedPassword,
       name: 'Administrator',
       role: 'ADMIN',
     },
   })
 
+  console.log('Admin user created:', adminUser)
+
   // Create instructor users and instructors
+  const instructorPassword = await bcrypt.hash('instructor123', 12)
   const instructorUser1 = await prisma.user.upsert({
     where: { email: 'fatimah@jannati.com' },
     update: {},
@@ -24,8 +30,11 @@ async function main() {
       email: 'fatimah@jannati.com',
       name: 'Ustazah Fatimah',
       role: 'INSTRUCTOR',
+      password: instructorPassword,
     },
   })
+
+  console.log('Instructor user created:', instructorUser1)
 
   const instructor1 = await prisma.instructor.upsert({
     where: { userId: instructorUser1.id },
@@ -47,6 +56,7 @@ async function main() {
       email: 'ahmad@jannati.com',
       name: 'Ustaz Ahmad',
       role: 'INSTRUCTOR',
+      password: instructorPassword,
     },
   })
 
