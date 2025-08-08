@@ -1,9 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Instructor } from '@/types'
+import { Instructor } from '@/store/useDataStore'
+import { useDataStore } from '@/store/useDataStore'
+import { useEffect } from 'react'
 
 // Fetch all instructors
 export const useInstructors = () => {
-  return useQuery({
+  const { instructors, setInstructors, setLoading } = useDataStore()
+  
+  const query = useQuery({
     queryKey: ['instructors'],
     queryFn: async (): Promise<Instructor[]> => {
       const response = await fetch('/api/instructors')
@@ -12,7 +16,21 @@ export const useInstructors = () => {
       }
       return response.json()
     },
+    staleTime: 5 * 60 * 1000, // 5 minutes
   })
+
+  // Sync React Query data with Zustand store
+  useEffect(() => {
+    if (query.data) {
+      setInstructors(query.data)
+    }
+    setLoading('instructors', query.isLoading)
+  }, [query.data, query.isLoading, setInstructors, setLoading])
+
+  return {
+    ...query,
+    data: instructors, // Always return data from Zustand store
+  }
 }
 
 // Fetch single instructor
@@ -33,6 +51,7 @@ export const useInstructor = (id: string) => {
 // Create instructor mutation
 export const useCreateInstructor = () => {
   const queryClient = useQueryClient()
+  const { addInstructor } = useDataStore()
   
   return useMutation({
     mutationFn: async (data: Omit<Instructor, 'id' | 'createdAt' | 'updatedAt'>): Promise<Instructor> => {
@@ -44,11 +63,15 @@ export const useCreateInstructor = () => {
         body: JSON.stringify(data),
       })
       if (!response.ok) {
-        throw new Error('Failed to create instructor')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create instructor')
       }
       return response.json()
     },
-    onSuccess: () => {
+    onSuccess: (newInstructor) => {
+      // Update Zustand store immediately
+      addInstructor(newInstructor)
+      // Invalidate and refetch
       queryClient.invalidateQueries({ queryKey: ['instructors'] })
     },
   })
@@ -57,24 +80,28 @@ export const useCreateInstructor = () => {
 // Update instructor mutation
 export const useUpdateInstructor = () => {
   const queryClient = useQueryClient()
+  const { updateInstructor } = useDataStore()
   
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Instructor> }): Promise<Instructor> => {
-      const response = await fetch(`/api/instructors/${id}`, {
+      const response = await fetch('/api/instructors', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ id, ...data }),
       })
       if (!response.ok) {
-        throw new Error('Failed to update instructor')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to update instructor')
       }
       return response.json()
     },
-    onSuccess: (_, { id }) => {
+    onSuccess: (updatedInstructor) => {
+      // Update Zustand store immediately
+      updateInstructor(updatedInstructor.id, updatedInstructor)
+      // Invalidate and refetch
       queryClient.invalidateQueries({ queryKey: ['instructors'] })
-      queryClient.invalidateQueries({ queryKey: ['instructors', id] })
     },
   })
 }
@@ -82,17 +109,22 @@ export const useUpdateInstructor = () => {
 // Delete instructor mutation
 export const useDeleteInstructor = () => {
   const queryClient = useQueryClient()
+  const { removeInstructor } = useDataStore()
   
   return useMutation({
     mutationFn: async (id: string): Promise<void> => {
-      const response = await fetch(`/api/instructors/${id}`, {
+      const response = await fetch(`/api/instructors?id=${id}`, {
         method: 'DELETE',
       })
       if (!response.ok) {
-        throw new Error('Failed to delete instructor')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to delete instructor')
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, id) => {
+      // Update Zustand store immediately
+      removeInstructor(id)
+      // Invalidate and refetch
       queryClient.invalidateQueries({ queryKey: ['instructors'] })
     },
   })

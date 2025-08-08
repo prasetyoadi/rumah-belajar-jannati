@@ -1,8 +1,11 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { PortalData } from '@/types'
 import { useAdminStore } from '@/store/useAdminStore'
+import { useAuthStore } from '@/store/useAuthStore'
+import { useLogout } from '@/hooks/useAuth'
 import ProgramsManager from '@/components/admin/ProgramsManager'
 import InstructorsManager from '@/components/admin/InstructorsManager'
 import BenefitsManager from '@/components/admin/BenefitsManager'
@@ -18,13 +21,18 @@ import {
   HeartIcon,
   AcademicCapIcon,
   ClockIcon,
-  PhotoIcon
+  PhotoIcon,
+  ArrowRightOnRectangleIcon
 } from '@heroicons/react/24/outline'
 
 export default function AdminDashboard() {
   const [portalData, setPortalData] = useState<PortalData[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'overview' | 'programs' | 'instructors' | 'benefits' | 'faqs' | 'testimonials' | 'gallery' | 'monitoring'>('overview')
+  
+  const router = useRouter()
+  const { user, isAuthenticated } = useAuthStore()
+  const logoutMutation = useLogout()
   
   const { 
     programs, 
@@ -41,13 +49,25 @@ export default function AdminDashboard() {
     fetchGallery
   } = useAdminStore()
 
+  // Redirect to login if not authenticated
   useEffect(() => {
-    loadInitialData()
-    fetchPortalData()
-    // Auto-refresh portal data every 5 minutes
-    const interval = setInterval(fetchPortalData, 5 * 60 * 1000)
-    return () => clearInterval(interval)
-  }, [])
+    if (!isAuthenticated) {
+      router.push('/admin/login' as any)
+    }
+  }, [isAuthenticated, router])
+
+  const handleLogout = async () => {
+    try {
+      await logoutMutation.mutateAsync()
+      router.push('/admin/login' as any)
+    } catch (error) {
+      console.error('Logout error:', error)
+      // Force logout even if API call fails
+      const { logout } = useAuthStore.getState()
+      logout()
+      router.push('/admin/login' as any)
+    }
+  }
 
   const loadInitialData = async () => {
     try {
@@ -60,11 +80,19 @@ export default function AdminDashboard() {
         fetchGallery()
       ])
     } catch (error) {
-      console.error('Failed to load initial data:', error)
-    } finally {
-      setLoading(false)
+      console.error('Error loading initial data:', error)
     }
   }
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadInitialData()
+      fetchPortalData()
+      // Auto-refresh portal data every 5 minutes
+      const interval = setInterval(fetchPortalData, 5 * 60 * 1000)
+      return () => clearInterval(interval)
+    }
+  }, [isAuthenticated])
 
   const fetchPortalData = async () => {
     try {
@@ -73,7 +101,14 @@ export default function AdminDashboard() {
       setPortalData(data)
     } catch (error) {
       console.error('Failed to fetch portal data:', error)
+    } finally {
+      setLoading(false)
     }
+  }
+
+  // Don't render anything if not authenticated
+  if (!isAuthenticated) {
+    return null
   }
 
   const tabs = [
@@ -134,9 +169,26 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-          <p className="mt-2 text-gray-600">Manage content and monitor system status</p>
+        <div className="mb-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+            <p className="mt-2 text-gray-600">Manage content and monitor system status</p>
+          </div>
+          <div className="flex items-center space-x-4">
+            {user && (
+              <div className="text-sm text-gray-600">
+                Welcome, <span className="font-medium">{user.name}</span>
+              </div>
+            )}
+            <button
+              onClick={handleLogout}
+              disabled={logoutMutation.isPending}
+              className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+            >
+              <ArrowRightOnRectangleIcon className="h-4 w-4 mr-1" />
+              {logoutMutation.isPending ? 'Logging out...' : 'Logout'}
+            </button>
+          </div>
         </div>
 
         {/* Tab Navigation */}

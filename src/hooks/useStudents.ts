@@ -1,23 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-
-// Student interfaces
-export interface Student {
-  id: string
-  userId?: string
-  name: string
-  birthDate?: string
-  address?: string
-  phone?: string
-  parentName?: string
-  parentPhone?: string
-  isActive: boolean
-  createdAt: string
-  updatedAt: string
-}
+import { Student } from '@/store/useDataStore'
+import { useDataStore } from '@/store/useDataStore'
+import { useEffect } from 'react'
 
 // Fetch all students
 export const useStudents = () => {
-  return useQuery({
+  const { students, setStudents, setLoading } = useDataStore()
+  
+  const query = useQuery({
     queryKey: ['students'],
     queryFn: async (): Promise<Student[]> => {
       const response = await fetch('/api/students')
@@ -26,7 +16,21 @@ export const useStudents = () => {
       }
       return response.json()
     },
+    staleTime: 5 * 60 * 1000, // 5 minutes
   })
+
+  // Sync React Query data with Zustand store
+  useEffect(() => {
+    if (query.data) {
+      setStudents(query.data)
+    }
+    setLoading('students', query.isLoading)
+  }, [query.data, query.isLoading, setStudents, setLoading])
+
+  return {
+    ...query,
+    data: students, // Always return data from Zustand store
+  }
 }
 
 // Fetch single student
@@ -47,6 +51,7 @@ export const useStudent = (id: string) => {
 // Create student mutation
 export const useCreateStudent = () => {
   const queryClient = useQueryClient()
+  const { addStudent } = useDataStore()
   
   return useMutation({
     mutationFn: async (data: Omit<Student, 'id' | 'createdAt' | 'updatedAt'>): Promise<Student> => {
@@ -58,11 +63,15 @@ export const useCreateStudent = () => {
         body: JSON.stringify(data),
       })
       if (!response.ok) {
-        throw new Error('Failed to create student')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create student')
       }
       return response.json()
     },
-    onSuccess: () => {
+    onSuccess: (newStudent) => {
+      // Update Zustand store immediately
+      addStudent(newStudent)
+      // Invalidate and refetch
       queryClient.invalidateQueries({ queryKey: ['students'] })
     },
   })
@@ -71,24 +80,28 @@ export const useCreateStudent = () => {
 // Update student mutation
 export const useUpdateStudent = () => {
   const queryClient = useQueryClient()
+  const { updateStudent } = useDataStore()
   
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Student> }): Promise<Student> => {
-      const response = await fetch(`/api/students/${id}`, {
+      const response = await fetch('/api/students', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ id, ...data }),
       })
       if (!response.ok) {
-        throw new Error('Failed to update student')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to update student')
       }
       return response.json()
     },
-    onSuccess: (_, { id }) => {
+    onSuccess: (updatedStudent) => {
+      // Update Zustand store immediately
+      updateStudent(updatedStudent.id, updatedStudent)
+      // Invalidate and refetch
       queryClient.invalidateQueries({ queryKey: ['students'] })
-      queryClient.invalidateQueries({ queryKey: ['students', id] })
     },
   })
 }
@@ -96,17 +109,22 @@ export const useUpdateStudent = () => {
 // Delete student mutation
 export const useDeleteStudent = () => {
   const queryClient = useQueryClient()
+  const { removeStudent } = useDataStore()
   
   return useMutation({
     mutationFn: async (id: string): Promise<void> => {
-      const response = await fetch(`/api/students/${id}`, {
+      const response = await fetch(`/api/students?id=${id}`, {
         method: 'DELETE',
       })
       if (!response.ok) {
-        throw new Error('Failed to delete student')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to delete student')
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, id) => {
+      // Update Zustand store immediately
+      removeStudent(id)
+      // Invalidate and refetch
       queryClient.invalidateQueries({ queryKey: ['students'] })
     },
   })

@@ -1,33 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-
-// Payment interfaces
-export interface Payment {
-  id: string
-  studentId: string
-  enrollmentId?: string
-  amount: number
-  method: 'CASH' | 'BANK_TRANSFER' | 'E_WALLET' | 'OTHER'
-  status: 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'CANCELLED'
-  reference?: string
-  notes?: string
-  paidAt?: string
-  confirmedAt?: string
-  confirmedBy?: string
-  createdAt: string
-  updatedAt: string
-  student?: {
-    name: string
-  }
-  enrollment?: {
-    program: {
-      title: string
-    }
-  }
-}
+import { Payment } from '@/store/useDataStore'
+import { useDataStore } from '@/store/useDataStore'
+import { useEffect } from 'react'
 
 // Fetch all payments
 export const usePayments = () => {
-  return useQuery({
+  const { payments, setPayments, setLoading } = useDataStore()
+  
+  const query = useQuery({
     queryKey: ['payments'],
     queryFn: async (): Promise<Payment[]> => {
       const response = await fetch('/api/payments')
@@ -36,7 +16,21 @@ export const usePayments = () => {
       }
       return response.json()
     },
+    staleTime: 5 * 60 * 1000, // 5 minutes
   })
+
+  // Sync React Query data with Zustand store
+  useEffect(() => {
+    if (query.data) {
+      setPayments(query.data)
+    }
+    setLoading('payments', query.isLoading)
+  }, [query.data, query.isLoading, setPayments, setLoading])
+
+  return {
+    ...query,
+    data: payments, // Always return data from Zustand store
+  }
 }
 
 // Fetch payments by student
@@ -71,6 +65,7 @@ export const usePendingPayments = () => {
 // Create payment mutation
 export const useCreatePayment = () => {
   const queryClient = useQueryClient()
+  const { addPayment } = useDataStore()
   
   return useMutation({
     mutationFn: async (data: Omit<Payment, 'id' | 'createdAt' | 'updatedAt' | 'student' | 'enrollment'>): Promise<Payment> => {
@@ -82,11 +77,15 @@ export const useCreatePayment = () => {
         body: JSON.stringify(data),
       })
       if (!response.ok) {
-        throw new Error('Failed to create payment')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create payment')
       }
       return response.json()
     },
-    onSuccess: () => {
+    onSuccess: (newPayment) => {
+      // Update Zustand store immediately
+      addPayment(newPayment)
+      // Invalidate and refetch
       queryClient.invalidateQueries({ queryKey: ['payments'] })
     },
   })
@@ -95,22 +94,27 @@ export const useCreatePayment = () => {
 // Confirm payment mutation (admin only)
 export const useConfirmPayment = () => {
   const queryClient = useQueryClient()
+  const { updatePayment } = useDataStore()
   
   return useMutation({
     mutationFn: async ({ id, confirmedBy }: { id: string; confirmedBy: string }): Promise<Payment> => {
-      const response = await fetch(`/api/payments/${id}/confirm`, {
-        method: 'PATCH',
+      const response = await fetch('/api/payments', {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ confirmedBy }),
+        body: JSON.stringify({ id, status: 'CONFIRMED', confirmedBy, confirmedAt: new Date().toISOString() }),
       })
       if (!response.ok) {
-        throw new Error('Failed to confirm payment')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to confirm payment')
       }
       return response.json()
     },
-    onSuccess: () => {
+    onSuccess: (updatedPayment) => {
+      // Update Zustand store immediately
+      updatePayment(updatedPayment.id, updatedPayment)
+      // Invalidate and refetch
       queryClient.invalidateQueries({ queryKey: ['payments'] })
     },
   })
@@ -119,22 +123,27 @@ export const useConfirmPayment = () => {
 // Reject payment mutation (admin only)
 export const useRejectPayment = () => {
   const queryClient = useQueryClient()
+  const { updatePayment } = useDataStore()
   
   return useMutation({
     mutationFn: async ({ id, notes }: { id: string; notes?: string }): Promise<Payment> => {
-      const response = await fetch(`/api/payments/${id}/reject`, {
-        method: 'PATCH',
+      const response = await fetch('/api/payments', {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ notes }),
+        body: JSON.stringify({ id, status: 'REJECTED', notes }),
       })
       if (!response.ok) {
-        throw new Error('Failed to reject payment')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to reject payment')
       }
       return response.json()
     },
-    onSuccess: () => {
+    onSuccess: (updatedPayment) => {
+      // Update Zustand store immediately
+      updatePayment(updatedPayment.id, updatedPayment)
+      // Invalidate and refetch
       queryClient.invalidateQueries({ queryKey: ['payments'] })
     },
   })
