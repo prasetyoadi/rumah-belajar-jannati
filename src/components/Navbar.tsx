@@ -10,6 +10,7 @@ const navigation = [
   { name: 'Program', href: '/programs' },
   { name: 'Tentang Kami', href: '/about' },
   { name: 'Instruktur', href: '/instructors' },
+  { name: 'Gallery', href: '/gallery' },
   { name: 'FAQ', href: '/faq' },
   { name: 'Kontak', href: '/contact' },
 ]

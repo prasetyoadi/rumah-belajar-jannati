@@ -98,3 +98,16 @@ export interface PortalData {
   timestamp: string
   status: 'active' | 'inactive' | 'error'
 }
+
+export interface Gallery {
+  id: string
+  title: string
+  description: string
+  imageUrl: string
+  category: 'classroom' | 'playground' | 'facility' | 'activity' | 'event'
+  isActive: boolean
+  order: number
+  tags: string[]
+  createdAt: string
+  updatedAt: string
+}

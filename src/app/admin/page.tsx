@@ -8,6 +8,7 @@ import InstructorsManager from '@/components/admin/InstructorsManager'
 import BenefitsManager from '@/components/admin/BenefitsManager'
 import FAQsManager from '@/components/admin/FAQsManager'
 import TestimonialsManager from '@/components/admin/TestimonialsManager'
+import GalleryManager from '@/components/admin/GalleryManager'
 import { 
   ChartBarIcon,
   UserGroupIcon,
@@ -16,13 +17,14 @@ import {
   ChatBubbleLeftRightIcon,
   HeartIcon,
   AcademicCapIcon,
-  ClockIcon
+  ClockIcon,
+  PhotoIcon
 } from '@heroicons/react/24/outline'
 
 export default function AdminDashboard() {
   const [portalData, setPortalData] = useState<PortalData[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'overview' | 'programs' | 'instructors' | 'benefits' | 'faqs' | 'testimonials' | 'monitoring'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'programs' | 'instructors' | 'benefits' | 'faqs' | 'testimonials' | 'gallery' | 'monitoring'>('overview')
   
   const { 
     programs, 
@@ -30,11 +32,13 @@ export default function AdminDashboard() {
     benefits, 
     faqs, 
     testimonials,
+    gallery,
     fetchPrograms,
     fetchInstructors,
     fetchBenefits,
     fetchFaqs,
-    fetchTestimonials
+    fetchTestimonials,
+    fetchGallery
   } = useAdminStore()
 
   useEffect(() => {
@@ -52,7 +56,8 @@ export default function AdminDashboard() {
         fetchInstructors(),
         fetchBenefits(),
         fetchFaqs(),
-        fetchTestimonials()
+        fetchTestimonials(),
+        fetchGallery()
       ])
     } catch (error) {
       console.error('Failed to load initial data:', error)
@@ -78,6 +83,7 @@ export default function AdminDashboard() {
     { id: 'benefits', name: 'Benefits', icon: HeartIcon },
     { id: 'faqs', name: 'FAQs', icon: QuestionMarkCircleIcon },
     { id: 'testimonials', name: 'Testimonials', icon: ChatBubbleLeftRightIcon },
+    { id: 'gallery', name: 'Gallery', icon: PhotoIcon },
     { id: 'monitoring', name: 'Portal Monitoring', icon: UserGroupIcon },
   ]
 
@@ -221,6 +227,7 @@ export default function AdminDashboard() {
           {activeTab === 'benefits' && <BenefitsManager isActive={true} />}
           {activeTab === 'faqs' && <FAQsManager isActive={true} />}
           {activeTab === 'testimonials' && <TestimonialsManager isActive={true} />}
+          {activeTab === 'gallery' && <GalleryManager />}
 
           {activeTab === 'monitoring' && (
             <div className="space-y-6">

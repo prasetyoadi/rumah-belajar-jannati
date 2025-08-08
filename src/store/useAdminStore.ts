@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
-import { Program, Instructor, FAQ, Testimonial, Hero, Benefit } from '@/types'
+import { Program, Instructor, FAQ, Testimonial, Hero, Benefit, Gallery } from '@/types'
 
 interface AdminState {
   // Programs state
@@ -26,6 +26,10 @@ interface AdminState {
   // Benefits state
   benefits: Benefit[]
   isLoadingBenefits: boolean
+  
+  // Gallery state
+  gallery: Gallery[]
+  isLoadingGallery: boolean
   
   // General loading state
   isLoading: boolean
@@ -76,6 +80,13 @@ interface AdminState {
   updateBenefit: (id: string, benefit: Partial<Benefit>) => void
   deleteBenefit: (id: string) => void
   fetchBenefits: () => Promise<void>
+  
+  // Gallery actions
+  setGallery: (gallery: Gallery[]) => void
+  addGalleryItem: (galleryItem: Gallery) => void
+  updateGalleryItem: (id: string, galleryItem: Partial<Gallery>) => void
+  deleteGalleryItem: (id: string) => void
+  fetchGallery: () => Promise<void>
 }
 
 export const useAdminStore = create<AdminState>()(
@@ -95,6 +106,8 @@ export const useAdminStore = create<AdminState>()(
         isLoadingHeroes: false,
         benefits: [],
         isLoadingBenefits: false,
+        gallery: [],
+        isLoadingGallery: false,
         isLoading: false,
         error: null,
         
@@ -251,6 +264,31 @@ export const useAdminStore = create<AdminState>()(
             set({ error: (error as Error).message, isLoadingBenefits: false })
           }
         },
+        
+        // Gallery actions
+        setGallery: (gallery: Gallery[]) => set({ gallery }),
+        addGalleryItem: (galleryItem: Gallery) => set((state) => ({
+          gallery: [...state.gallery, galleryItem]
+        })),
+        updateGalleryItem: (id: string, updatedGalleryItem: Partial<Gallery>) => set((state) => ({
+          gallery: state.gallery.map((item) =>
+            item.id === id ? { ...item, ...updatedGalleryItem } : item
+          )
+        })),
+        deleteGalleryItem: (id: string) => set((state) => ({
+          gallery: state.gallery.filter((item) => item.id !== id)
+        })),
+        fetchGallery: async () => {
+          set({ isLoadingGallery: true, error: null })
+          try {
+            const response = await fetch('/api/gallery')
+            if (!response.ok) throw new Error('Failed to fetch gallery')
+            const gallery = await response.json()
+            set({ gallery, isLoadingGallery: false })
+          } catch (error) {
+            set({ error: (error as Error).message, isLoadingGallery: false })
+          }
+        },
       }),
       {
         name: 'admin-storage',
@@ -261,6 +299,7 @@ export const useAdminStore = create<AdminState>()(
           testimonials: state.testimonials,
           heroes: state.heroes,
           benefits: state.benefits,
+          gallery: state.gallery,
         }),
       }
     ),
